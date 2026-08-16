@@ -46,3 +46,11 @@ export function fetchRefreshToken(refreshToken: string) {
 export function fetchCustomBackendError(code: string, msg: string) {
   return request({ url: '/auth/error', params: { code, msg } });
 }
+
+/**
+ * 注销登录
+ * @returns
+ */
+export function fetchLogout() {
+  return request({ url: '/auth/logout', method: 'post' });
+}

@@ -2,7 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { defineStore } from 'pinia';
 import { useLoading } from '@sa/hooks';
-import { fetchGetUserInfo, fetchLogin } from '@/service/api';
+import { fetchGetUserInfo, fetchLogin, fetchLogout } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
@@ -170,6 +170,17 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       }
     }
   }
+  /** Logout and call backend */
+  async function logout() {
+    // 调用后端退出接口（不阻塞后续操作）
+    try {
+      await fetchLogout();
+    } catch (error) {
+      console.warn('Logout API call failed, continuing to clear local state:', error);
+    }
+    // 重置本地状态
+    await resetStore();
+  }
 
   return {
     token,
@@ -179,6 +190,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     loginLoading,
     resetStore,
     login,
-    initUserInfo
+    initUserInfo,
+    logout
   };
 });

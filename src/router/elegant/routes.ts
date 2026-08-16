@@ -74,5 +74,27 @@ export const generatedRoutes: GeneratedRoute[] = [
       constant: true,
       hideInMenu: true
     }
+  },
+  {
+    name: 'navigation',
+    path: '/navigation',
+    component: 'layout.base$view.navigation',
+    meta: {
+      title: 'navigation',
+      i18nKey: 'route.navigation',
+      icon: 'mdi:navigation-variant-outline',
+      order: 2
+    }
+  },
+  {
+    name: 'product',
+    path: '/product',
+    component: 'layout.base$view.product',
+    meta: {
+      title: 'product',
+      i18nKey: 'route.product',
+      icon: 'streamline:interface-calendar-check-approve-calendar-check-date-day-month-success',
+      order: 3
+    }
   }
 ];

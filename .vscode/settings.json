@@ -19,5 +19,8 @@
     "baseUrl": "."
   },
   "oxc.fmt.configPath": ".oxfmtrc.json",
-  "unocss.root": ["./"]
+  "unocss.root": ["./"],
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  }
 }
