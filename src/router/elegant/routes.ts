@@ -76,15 +76,39 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
-    name: 'navigation',
-    path: '/navigation',
-    component: 'layout.base$view.navigation',
+    name: 'ozon',
+    path: '/ozon',
+    component: 'layout.base',
     meta: {
-      title: 'navigation',
-      i18nKey: 'route.navigation',
-      icon: 'mdi:navigation-variant-outline',
+      title: 'ozon',
+      i18nKey: 'route.ozon',
+      icon: 'streamline-ultimate:e-commerce-touch-buy-bold',
       order: 2
-    }
+    },
+    children: [
+      {
+        name: 'ozon_product',
+        path: '/ozon/product',
+        component: 'view.ozon_product',
+        meta: {
+          title: 'ozon_product',
+          i18nKey: 'route.ozon_product',
+          icon: 'streamline:interface-calendar-check-approve-calendar-check-date-day-month-success',
+          order: 1
+        }
+      },
+      {
+        name: 'ozon_search',
+        path: '/ozon/search',
+        component: 'view.ozon_search',
+        meta: {
+          title: 'ozon_search',
+          i18nKey: 'route.ozon_search',
+          icon: 'streamline:interface-content-fire-lit-flame-torch-trending',
+          order: 2
+        }
+      }
+    ]
   },
   {
     name: 'product',

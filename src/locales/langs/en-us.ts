@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'SoybeanAdmin',
+    title: 'MegaStar',
     updateTitle: 'System Version Update Notification',
     updateContent: 'A new version of the system has been detected. Do you want to refresh the page immediately?',
     updateConfirm: 'Refresh immediately',
@@ -230,8 +230,10 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
-    navigation: 'Navigation',
-    product: 'Product'
+    product: 'Product',
+    ozon: 'Ozon',
+    ozon_product: 'Product',
+    ozon_search: 'HotSearch'
   },
   page: {
     login: {
