@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount, h } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, h, resolveComponent } from 'vue';
 import { useLoading } from '@sa/hooks';
 import {
   useMessage,
@@ -21,6 +21,9 @@ import { fetchOzonProducts, type OzonProductVO, type OzonProductQuery } from '@/
 import { fetchOzonCategoryTree } from '@/service/api/ozon-category';
 
 defineOptions({ name: 'OzonProductList' });
+
+// ✅ 修复：获取全局注册的 SvgIcon 组件引用，供 h() 渲染函数使用
+const SvgIconComp = resolveComponent('SvgIcon');
 
 const message = useMessage();
 const { loading, startLoading, endLoading } = useLoading();
@@ -123,7 +126,6 @@ function computeLocalStats() {
 
 // ========== 搜索/重置/分页/排序 ==========
 function handleSearch() {
-  // ★ 将选中的类目 ID 转换为名称（取第一个）
   if (selectedCategoryIds.value.length > 0) {
     const names = findCategoryNames(selectedCategoryIds.value, categoryTree.value);
     searchParams.category1 = names[0] || '';
@@ -256,7 +258,7 @@ async function copyText(text: string) {
   }
 }
 
-// ★ 复制按钮工厂
+// ✅ 修复：复制按钮工厂中使用 SvgIconComp 替代字符串 'SvgIcon'
 function makeCopyBtn(text: string, label: string) {
   return h(
     NButton,
@@ -273,25 +275,20 @@ function makeCopyBtn(text: string, label: string) {
       }
     },
     {
-      icon: () => h('SvgIcon', { icon: 'ph:copy', style: 'font-size:14px;' })
+      icon: () => h(SvgIconComp, { icon: 'ph:copy', width: 14, height: 14 })
     }
   );
 }
 
-// ★★★ 修复后的类目树加载函数（已去除 mock）★★★
+// ★★★ 类目树加载函数 ★★★
 async function loadCategoryTree() {
   try {
     const response = await fetchOzonCategoryTree();
-    console.log('类目树原始响应:', response);
-    // 从响应中提取树形数据，假设 response.data 是数组
     const rawData = response.data;
     if (Array.isArray(rawData) && rawData.length > 0) {
       categoryTree.value = mapTreeFields(rawData);
-      console.log('类目树加载成功，根节点数:', categoryTree.value.length);
     } else {
-      // 数据为空时，清空树并给出提示
       categoryTree.value = [];
-      console.warn('类目树数据为空');
       message.warning('类目树数据为空，请检查后端数据');
     }
   } catch (e) {
@@ -301,7 +298,6 @@ async function loadCategoryTree() {
   }
 }
 
-// ★ 将后端树形结构（categoryId, name, children）映射为 NTreeSelect 所需格式（key, label, children）
 function mapTreeFields(nodes: any[]): any[] {
   return nodes.map((node: any) => ({
     key: node.categoryId,
@@ -310,7 +306,6 @@ function mapTreeFields(nodes: any[]): any[] {
   }));
 }
 
-// ★ 递归查找类目名称（基于 key/label/children 格式）
 function findCategoryNames(ids: string[], nodes: any[]): string[] {
   const names: string[] = [];
   for (const node of nodes) {
@@ -335,20 +330,20 @@ const columns = computed(() => [
     render: (row: OzonProductVO) => {
       const children: any[] = [];
 
-      // 缩略图
       if (row.photo) {
         children.push(
           h('img', {
             src: row.photo,
             alt: row.name || '',
-            class: 'w-60px h-60px object-contain rounded-6px border border-gray-200 flex-shrink-0 bg-gray-50',
+            class: 'w-100px h-100px object-contain rounded-6px border border-gray-200 flex-shrink-0 bg-gray-50',
             onerror: handleImgError
           })
         );
       } else {
+        // ✅ 修复：占位图标使用 SvgIconComp
         children.push(
           h('div', { class: 'w-60px h-60px flex items-center justify-center bg-gray-100 rounded-6px flex-shrink-0' }, [
-            h('SvgIcon', { icon: 'ph:package', style: 'font-size:22px;color:#c0c4cc;' })
+            h(SvgIconComp, { icon: 'ph:package', width: 22, height: 22, style: 'color:#c0c4cc;' })
           ])
         );
       }
@@ -370,7 +365,7 @@ const columns = computed(() => [
           h('div', { class: 'flex items-center gap-4px text-11px flex-wrap' }, [
             h('span', { class: 'text-gray-400 whitespace-nowrap flex-shrink-0' }, '品牌:'),
             h('span', { class: 'text-gray-700 break-all' }, row.brand),
-            makeCopyBtn(row.brand, '复制')
+            makeCopyBtn(row.brand, '品牌')
           ])
         );
       }
@@ -379,7 +374,7 @@ const columns = computed(() => [
           h('div', { class: 'flex items-center gap-4px text-11px flex-wrap' }, [
             h('span', { class: 'text-gray-400 whitespace-nowrap flex-shrink-0' }, '卖家:'),
             h('span', { class: 'text-gray-700 break-all' }, row.sellerName),
-            makeCopyBtn(row.sellerName, '复制')
+            makeCopyBtn(row.sellerName, '卖家')
           ])
         );
       }
@@ -388,7 +383,7 @@ const columns = computed(() => [
           h('div', { class: 'flex items-center gap-4px text-11px flex-wrap' }, [
             h('span', { class: 'text-gray-400 whitespace-nowrap flex-shrink-0' }, '货号:'),
             h('span', { class: 'text-gray-700 break-all' }, row.article),
-            makeCopyBtn(row.article, '复制')
+            makeCopyBtn(row.article, '货号')
           ])
         );
       }
@@ -423,7 +418,7 @@ const columns = computed(() => [
       };
       const s = map[row.binStatus] || { color: '#303133', bg: '#e8e8e8', label: row.binStatus };
       return h(
-        'NTag',
+        NTag,
         { size: 'small', round: true, style: `color:${s.color};background:${s.bg};border:none;font-weight:600;` },
         { default: () => s.label }
       );
@@ -438,7 +433,7 @@ const columns = computed(() => [
     render: (row: OzonProductVO) => {
       if (row.soldSum == null) return h('span', { class: 'text-gray-300' }, '—');
       return h(
-        'NTag',
+        NTag,
         { size: 'small', type: priceTagType(row.soldSum), round: true, style: 'font-weight:600;font-size:13px;' },
         { default: () => formatPrice(row.soldSum) }
       );
@@ -517,22 +512,24 @@ const columns = computed(() => [
     align: 'center' as const,
     fixed: 'right' as const,
     render: (row: OzonProductVO) => {
+      // ✅ 修复：操作列详情按钮使用 SvgIconComp 替代字符串 'SvgIcon'
       return h(
         NButton,
         { size: 'small', type: 'primary', ghost: true, onClick: () => handleViewDetail(row) },
-        { default: () => '详情', icon: () => h('SvgIcon', { icon: 'ph:eye' }) }
+        {
+          default: () => '详情',
+          icon: () => h(SvgIconComp, { icon: 'ph:eye', width: 16, height: 16 })
+        }
       );
     }
   }
 ]);
 
-// ★ 在 onMounted 中加载类目树和数据
 onMounted(() => {
   loadCategoryTree();
   loadData({ ...searchParams });
 });
 
-// ★ 组件卸载时取消未完成的请求
 onBeforeUnmount(() => {
   isUnmounted = true;
   if (abortController) {
@@ -555,7 +552,9 @@ onBeforeUnmount(() => {
               clearable
               @keydown.enter="handleSearch"
             >
-              <template #prefix><SvgIcon icon="ph:magnifying-glass" /></template>
+              <template #prefix>
+                <SvgIcon icon="ph:magnifying-glass" />
+              </template>
             </NInput>
           </div>
         </div>
@@ -565,7 +564,6 @@ onBeforeUnmount(() => {
             <NInput v-model:value="searchParams.brand" placeholder="品牌" clearable @keydown.enter="handleSearch" />
           </div>
         </div>
-        <!-- ★ 类目选择器 -->
         <div class="col-span-2">
           <div class="flex items-center gap-8px">
             <span class="text-13px text-gray-500 whitespace-nowrap" style="min-width: 40px">类目</span>
@@ -587,11 +585,15 @@ onBeforeUnmount(() => {
         </div>
         <div class="col-span-4 flex items-center justify-end gap-8px">
           <NButton type="primary" :loading="loading" :disabled="loading" @click="handleSearch">
-            <template #icon><SvgIcon icon="ph:magnifying-glass" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:magnifying-glass" />
+            </template>
             搜索
           </NButton>
           <NButton :disabled="loading" @click="handleReset">
-            <template #icon><SvgIcon icon="ph:arrow-counter-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrow-counter-clockwise" />
+            </template>
             重置
           </NButton>
           <NButton text type="primary" @click="toggleExpand">
@@ -717,7 +719,9 @@ onBeforeUnmount(() => {
             Ozon 商品明细
           </span>
           <NButton size="small" :disabled="loading" @click="handleRefresh">
-            <template #icon><SvgIcon icon="ph:arrows-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrows-clockwise" />
+            </template>
             刷新
           </NButton>
         </div>
@@ -790,7 +794,9 @@ onBeforeUnmount(() => {
                   title="复制货号"
                   @click.stop="copyText(currentProduct.article!)"
                 >
-                  <template #icon><SvgIcon icon="ph:copy" /></template>
+                  <template #icon>
+                    <SvgIcon icon="ph:copy" />
+                  </template>
                   复制
                 </NButton>
               </div>
@@ -854,7 +860,9 @@ onBeforeUnmount(() => {
 
           <div class="pt-4px">
             <NButton v-if="currentProduct.link" type="primary" block @click="handleOpenLink(currentProduct.link!)">
-              <template #icon><SvgIcon icon="ph:link" /></template>
+              <template #icon>
+                <SvgIcon icon="ph:link" />
+              </template>
               在 Ozon 中查看
             </NButton>
           </div>
@@ -865,15 +873,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* 确保表格内的复制按钮图标始终可见 */
 :global(.copy-btn) {
   color: #9ca3af !important;
   transition: color 0.2s;
 }
+
 :global(.copy-btn:hover) {
   color: #3b82f6 !important;
 }
-/* 防止 NButton quaternary 在表格单元格中被意外隐藏 */
+
 :global(td .n-button.copy-btn) {
   display: inline-flex !important;
   visibility: visible !important;

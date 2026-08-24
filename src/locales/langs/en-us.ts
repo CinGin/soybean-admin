@@ -233,7 +233,10 @@ const local: App.I18n.Schema = {
     product: 'Product',
     ozon: 'Ozon',
     ozon_product: 'Product',
-    ozon_search: 'HotSearch'
+    ozon_search: 'HotSearch',
+    ozon_mapping: 'HotSearchMapping',
+    system: 'System',
+    system_config: 'Config'
   },
   page: {
     login: {

@@ -229,7 +229,10 @@ const local: App.I18n.Schema = {
     product: '测试商品详情',
     ozon: 'Ozon',
     ozon_product: '商品详情',
-    ozon_search: '热搜关键词'
+    ozon_search: '热搜关键词',
+    ozon_mapping: '类目匹配',
+    system: '系统设置',
+    system_config: '参数设置'
   },
   page: {
     login: {

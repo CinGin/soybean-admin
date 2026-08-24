@@ -1,3 +1,4 @@
+//@typings/api/ozon-search.d.ts
 declare namespace Api {
   namespace Ozon {
     /** 热搜词查询参数 */

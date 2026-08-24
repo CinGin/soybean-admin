@@ -24,9 +24,12 @@ declare module "@elegant-router/types" {
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "ozon": "/ozon";
+    "ozon_mapping": "/ozon/mapping";
     "ozon_product": "/ozon/product";
     "ozon_search": "/ozon/search";
     "product": "/product";
+    "system": "/system";
+    "system_config": "/system/config";
   };
 
   /**
@@ -66,6 +69,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "ozon"
     | "product"
+    | "system"
   >;
 
   /**
@@ -88,9 +92,11 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "login"
     | "home"
+    | "ozon_mapping"
     | "ozon_product"
     | "ozon_search"
     | "product"
+    | "system_config"
   >;
 
   /**

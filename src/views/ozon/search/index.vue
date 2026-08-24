@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, h } from 'vue';
+import { ref, reactive, computed, onMounted, h, resolveComponent } from 'vue';
 import { useLoading } from '@sa/hooks';
-import { useMessage } from 'naive-ui';
 import {
+  useMessage,
   NCard,
   NInput,
   NInputNumber,
@@ -18,6 +18,9 @@ import {
 import { fetchOzonSearchQueries, type OzonSearchQueryVO, type OzonSearchQueryParams } from '@/service/api/ozon-search';
 
 defineOptions({ name: 'OzonSearchTrending' });
+
+// ✅ 修复：通过 resolveComponent 获取全局注册的 SvgIcon 组件引用，供 h() 渲染函数使用
+const SvgIconComp = resolveComponent('SvgIcon');
 
 const message = useMessage();
 const { loading, startLoading, endLoading } = useLoading();
@@ -140,28 +143,26 @@ function handleSearch() {
   searchParams.page = 1;
   loadData();
 }
-
 function handleReset() {
-  searchParams.keyword = '';
-  searchParams.minCount = undefined;
-  searchParams.maxCount = undefined;
-  searchParams.minCa = undefined;
-  searchParams.minGmv = undefined;
-  searchParams.sortField = 'count';
-  searchParams.sortDir = 'desc';
-  searchParams.page = 1;
+  Object.assign(searchParams, {
+    keyword: '',
+    minCount: undefined,
+    maxCount: undefined,
+    minCa: undefined,
+    minGmv: undefined,
+    sortField: 'count',
+    sortDir: 'desc',
+    page: 1
+  });
   loadData();
 }
-
 function handleRefresh() {
   loadData();
 }
-
 function handlePageChange(page: number) {
   searchParams.page = page;
   loadData();
 }
-
 function handlePageSizeChange(size: number) {
   searchParams.size = size;
   searchParams.page = 1;
@@ -196,87 +197,64 @@ function handleWordClick(item: OzonSearchQueryVO) {
 
 // ========== 词云样式 ==========
 function getWordStyle(item: OzonSearchQueryVO, idx: number): Record<string, string> {
-  const maxCount =
-    searchQueries.value.length > 0 ? Math.max(...searchQueries.value.map((q: OzonSearchQueryVO) => q.count || 0)) : 1;
-  const minCount =
-    searchQueries.value.length > 0 ? Math.min(...searchQueries.value.map((q: OzonSearchQueryVO) => q.count || 0)) : 0;
+  const counts = searchQueries.value.map(q => q.count || 0);
+  const maxCount = counts.length > 0 ? Math.max(...counts) : 1;
+  const minCount = counts.length > 0 ? Math.min(...counts) : 0;
   const range = maxCount - minCount || 1;
   const ratio = ((item.count || 0) - minCount) / range;
-  const fontSize = 14 + ratio * 18;
-  const hue = 220 - ratio * 220;
-  const saturation = 60 + ratio * 40;
-  const lightness = 45 + (idx % 3) * 5;
-
   return {
-    'font-size': `${fontSize}px`,
-    color: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+    'font-size': `${14 + ratio * 18}px`,
+    color: `hsl(${220 - ratio * 220}, ${60 + ratio * 40}%, ${45 + (idx % 3) * 5}%)`,
     'font-weight': ratio > 0.7 ? '800' : ratio > 0.4 ? '600' : '400',
     'animation-delay': `${(idx % 10) * 0.1}s`
   };
 }
 
 // ========== 竞争等级 ==========
-function getCompetitionType(item: OzonSearchQueryVO): 'success' | 'warning' | 'error' | 'info' {
-  const count = item.count || 0;
-  if (count > 50000) return 'error';
-  if (count > 20000) return 'warning';
-  if (count > 5000) return 'info';
+function getCompetitionType(item: OzonSearchQueryVO) {
+  const c = item.count || 0;
+  if (c > 50000) return 'error';
+  if (c > 20000) return 'warning';
+  if (c > 5000) return 'info';
   return 'success';
 }
-
-function getCompetitionLabel(item: OzonSearchQueryVO): string {
-  const count = item.count || 0;
-  if (count > 50000) return '🔥 极度激烈';
-  if (count > 20000) return '⚡ 竞争激烈';
-  if (count > 5000) return '📊 中等竞争';
+function getCompetitionLabel(item: OzonSearchQueryVO) {
+  const c = item.count || 0;
+  if (c > 50000) return '🔥 极度激烈';
+  if (c > 20000) return '⚡ 竞争激烈';
+  if (c > 5000) return '📊 中等竞争';
   return '🌱 竞争较低';
 }
-
-function getCompetitionWidth(item: OzonSearchQueryVO): string {
-  const maxCount =
-    searchQueries.value.length > 0 ? Math.max(...searchQueries.value.map((q: OzonSearchQueryVO) => q.count || 0)) : 1;
-  const ratio = ((item.count || 0) / maxCount) * 100;
-  return `${Math.max(ratio, 5)}%`;
+function getCompetitionWidth(item: OzonSearchQueryVO) {
+  const max = searchQueries.value.length > 0 ? Math.max(...searchQueries.value.map(q => q.count || 0)) : 1;
+  return `${Math.max(((item.count || 0) / max) * 100, 5)}%`;
 }
-
-function getCompetitionGradient(item: OzonSearchQueryVO): string {
-  const count = item.count || 0;
-  if (count > 50000) return 'linear-gradient(90deg,#f56c6c,#f093fb)';
-  if (count > 20000) return 'linear-gradient(90deg,#e6a23c,#f093fb)';
-  if (count > 5000) return 'linear-gradient(90deg,#409eff,#43e97b)';
+function getCompetitionGradient(item: OzonSearchQueryVO) {
+  const c = item.count || 0;
+  if (c > 50000) return 'linear-gradient(90deg,#f56c6c,#f093fb)';
+  if (c > 20000) return 'linear-gradient(90deg,#e6a23c,#f093fb)';
+  if (c > 5000) return 'linear-gradient(90deg,#409eff,#43e97b)';
   return 'linear-gradient(90deg,#67c23a,#43e97b)';
 }
 
 // ========== 格式化工具 ==========
-function formatNumber(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return v.toLocaleString('ru-RU');
+function formatNumber(v: number | null | undefined) {
+  return v == null ? '—' : v.toLocaleString('ru-RU');
 }
-
-function formatPrice(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return `₽${Number(v).toLocaleString('ru-RU', { maximumFractionDigits: 0 })}`;
+function formatPrice(v: number | null | undefined) {
+  return v == null ? '—' : `₽${Number(v).toLocaleString('ru-RU', { maximumFractionDigits: 0 })}`;
 }
-
-function formatPriceShort(v: number): string {
+function formatPriceShort(v: number) {
   if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
   if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
   return v.toFixed(0);
 }
-
-function getCaColor(v: number | null | undefined): string {
-  if (v == null) return '#909399';
-  if (v > 15) return '#67c23a';
-  if (v > 8) return '#e6a23c';
-  return '#f56c6c';
+function getCaColor(v: number | null | undefined) {
+  return v == null ? '#909399' : v > 15 ? '#67c23a' : v > 8 ? '#e6a23c' : '#f56c6c';
 }
-
-function getShareColor(v: number | null | undefined): string {
-  if (v == null) return '#909399';
-  if (v > 50) return '#f56c6c';
-  if (v > 20) return '#e6a23c';
-  return '#67c23a';
+function getShareColor(v: number | null | undefined) {
+  return v == null ? '#909399' : v > 50 ? '#f56c6c' : v > 20 ? '#e6a23c' : '#67c23a';
 }
 
 // ========== 表格列定义 ==========
@@ -323,9 +301,8 @@ const columns = computed(() => [
     sorter: true,
     render: (row: OzonSearchQueryVO) => {
       if (row.count == null) return h('span', { class: 'text-gray-300' }, '—');
-      const num = row.count;
-      const color = num > 50000 ? '#f56c6c' : num > 20000 ? '#e6a23c' : '#303133';
-      return h('span', { class: 'font-bold', style: `color:${color};` }, formatNumber(num));
+      const color = row.count > 50000 ? '#f56c6c' : row.count > 20000 ? '#e6a23c' : '#303133';
+      return h('span', { class: 'font-bold', style: `color:${color};` }, formatNumber(row.count));
     }
   },
   {
@@ -336,16 +313,12 @@ const columns = computed(() => [
     sorter: true,
     render: (row: OzonSearchQueryVO) => {
       if (row.ca == null) return h('span', { class: 'text-gray-300' }, '—');
-      const val = row.ca;
-      const color = val > 15 ? '#67c23a' : val > 8 ? '#e6a23c' : '#f56c6c';
-      const bg = val > 15 ? 'rgba(103,194,58,0.1)' : val > 8 ? 'rgba(230,162,60,0.1)' : 'rgba(245,108,108,0.1)';
+      const color = row.ca > 15 ? '#67c23a' : row.ca > 8 ? '#e6a23c' : '#f56c6c';
+      const bg = row.ca > 15 ? 'rgba(103,194,58,0.1)' : row.ca > 8 ? 'rgba(230,162,60,0.1)' : 'rgba(245,108,108,0.1)';
       return h(
         'span',
-        {
-          class: 'inline-block px-2 py-0.5 rounded font-bold text-xs',
-          style: `color:${color};background:${bg};`
-        },
-        `${val.toFixed(2)}%`
+        { class: 'inline-block px-2 py-0.5 rounded font-bold text-xs', style: `color:${color};background:${bg};` },
+        `${row.ca.toFixed(2)}%`
       );
     }
   },
@@ -355,10 +328,10 @@ const columns = computed(() => [
     width: 116,
     align: 'right' as const,
     sorter: true,
-    render: (row: OzonSearchQueryVO) => {
-      if (row.avgCaRub == null) return h('span', { class: 'text-gray-300' }, '—');
-      return h('span', { class: 'font-medium text-gray-700' }, formatPrice(row.avgCaRub));
-    }
+    render: (row: OzonSearchQueryVO) =>
+      row.avgCaRub == null
+        ? h('span', { class: 'text-gray-300' }, '—')
+        : h('span', { class: 'font-medium text-gray-700' }, formatPrice(row.avgCaRub))
   },
   {
     title: 'GMV',
@@ -366,10 +339,10 @@ const columns = computed(() => [
     width: 138,
     align: 'right' as const,
     sorter: true,
-    render: (row: OzonSearchQueryVO) => {
-      if (row.gmv == null) return h('span', { class: 'text-gray-300' }, '—');
-      return h('span', { class: 'font-bold text-red-500' }, formatPrice(row.gmv));
-    }
+    render: (row: OzonSearchQueryVO) =>
+      row.gmv == null
+        ? h('span', { class: 'text-gray-300' }, '—')
+        : h('span', { class: 'font-bold text-red-500' }, formatPrice(row.gmv))
   },
   {
     title: '订单数',
@@ -377,10 +350,10 @@ const columns = computed(() => [
     width: 104,
     align: 'right' as const,
     sorter: true,
-    render: (row: OzonSearchQueryVO) => {
-      if (row.ord == null) return h('span', { class: 'text-gray-300' }, '—');
-      return h('span', { class: 'font-medium text-purple-600' }, formatNumber(row.ord));
-    }
+    render: (row: OzonSearchQueryVO) =>
+      row.ord == null
+        ? h('span', { class: 'text-gray-300' }, '—')
+        : h('span', { class: 'font-medium text-purple-600' }, formatNumber(row.ord))
   },
   {
     title: '浏览量',
@@ -388,21 +361,22 @@ const columns = computed(() => [
     width: 106,
     align: 'right' as const,
     sorter: true,
-    render: (row: OzonSearchQueryVO) => {
-      if (row.itemsViews == null) return h('span', { class: 'text-gray-300' }, '—');
-      return h('span', { class: 'text-gray-600' }, formatNumber(row.itemsViews));
-    }
+    render: (row: OzonSearchQueryVO) =>
+      row.itemsViews == null
+        ? h('span', { class: 'text-gray-300' }, '—')
+        : h('span', { class: 'text-gray-600' }, formatNumber(row.itemsViews))
   },
   {
     title: '竞争',
     key: 'competition',
     width: 108,
     align: 'center' as const,
-    render: (row: OzonSearchQueryVO) => {
-      const type = getCompetitionType(row);
-      const label = getCompetitionLabel(row);
-      return h(NTag, { size: 'small', type, round: true }, { default: () => label });
-    }
+    render: (row: OzonSearchQueryVO) =>
+      h(
+        NTag,
+        { size: 'small', type: getCompetitionType(row), round: true },
+        { default: () => getCompetitionLabel(row) }
+      )
   },
   {
     title: '操作',
@@ -411,6 +385,7 @@ const columns = computed(() => [
     align: 'center' as const,
     fixed: 'right' as const,
     render: (row: OzonSearchQueryVO) => {
+      // ✅ 修复：使用 SvgIconComp 替代字符串 'SvgIcon'，确保图标正确渲染且按钮内容居中
       return h(
         NButton,
         {
@@ -424,14 +399,13 @@ const columns = computed(() => [
         },
         {
           default: () => '详情',
-          icon: () => h('SvgIcon', { icon: 'ph:eye' })
+          icon: () => h(SvgIconComp, { icon: 'ph:eye', width: 16, height: 16 })
         }
       );
     }
   }
 ]);
 
-// ========== 初始化 ==========
 onMounted(() => {
   loadData();
 });
@@ -450,15 +424,15 @@ onMounted(() => {
             clearable
             @keydown.enter="handleSearch"
           >
-            <template #prefix><SvgIcon icon="ph:magnifying-glass" /></template>
+            <template #prefix>
+              <SvgIcon icon="ph:magnifying-glass" />
+            </template>
           </NInput>
         </div>
-
         <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500 whitespace-nowrap">最小次数</span>
           <NInputNumber v-model:value="searchParams.minCount" :min="0" placeholder="不限" class="w-30" clearable />
         </div>
-
         <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500 whitespace-nowrap">最低CA%</span>
           <NInputNumber
@@ -471,17 +445,14 @@ onMounted(() => {
             clearable
           />
         </div>
-
         <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500 whitespace-nowrap">最低GMV</span>
           <NInputNumber v-model:value="searchParams.minGmv" :min="0" placeholder="不限" class="w-30" clearable />
         </div>
-
         <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500 whitespace-nowrap">排序</span>
           <NSelect v-model:value="searchParams.sortField" :options="sortFieldOptions" class="w-35" />
         </div>
-
         <div class="flex items-center gap-1">
           <NButton
             :type="searchParams.sortDir === 'desc' ? 'primary' : 'default'"
@@ -491,7 +462,9 @@ onMounted(() => {
               handleSearch();
             "
           >
-            <template #icon><SvgIcon icon="ph:sort-descending" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:sort-descending" />
+            </template>
             降序
           </NButton>
           <NButton
@@ -502,22 +475,29 @@ onMounted(() => {
               handleSearch();
             "
           >
-            <template #icon><SvgIcon icon="ph:sort-ascending" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:sort-ascending" />
+            </template>
             升序
           </NButton>
         </div>
-
         <div class="flex items-center gap-2 ml-auto">
           <NButton type="primary" :loading="loading" @click="handleSearch">
-            <template #icon><SvgIcon icon="ph:magnifying-glass" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:magnifying-glass" />
+            </template>
             搜索
           </NButton>
           <NButton @click="handleReset">
-            <template #icon><SvgIcon icon="ph:arrow-counter-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrow-counter-clockwise" />
+            </template>
             重置
           </NButton>
           <NButton size="small" @click="handleRefresh">
-            <template #icon><SvgIcon icon="ph:arrows-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrows-clockwise" />
+            </template>
             刷新
           </NButton>
         </div>
@@ -559,7 +539,6 @@ onMounted(() => {
             <NTag size="small" type="warning" round class="ml-auto">TOP {{ searchQueries.length }}</NTag>
           </div>
         </template>
-
         <div class="word-cloud-container">
           <div
             v-for="(item, idx) in searchQueries"
@@ -593,7 +572,6 @@ onMounted(() => {
             <NTag size="small" type="info" round>共 {{ total }} 条</NTag>
           </div>
         </template>
-
         <NDataTable
           :columns="columns"
           :data="searchQueries"
@@ -616,7 +594,6 @@ onMounted(() => {
       <NDrawerContent :title="currentItem?.queryTextZh || currentItem?.queryText || '搜索词详情'" closable>
         <template v-if="currentItem">
           <div class="flex flex-col gap-1">
-            <!-- 搜索词标题 -->
             <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 flex flex-col gap-2">
               <div class="flex items-center gap-2 text-base font-semibold text-gray-800 break-all">
                 <SvgIcon icon="ph:translate" class="text-blue-500" />
@@ -627,8 +604,6 @@ onMounted(() => {
                 <span>{{ currentItem.queryTextZh }}</span>
               </div>
             </div>
-
-            <!-- 核心指标卡片 -->
             <div class="grid grid-cols-4 gap-2.5">
               <div class="flex flex-col items-center gap-1 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <span class="text-xs text-gray-400 uppercase tracking-wider">搜索次数</span>
@@ -649,8 +624,6 @@ onMounted(() => {
                 <span class="text-lg font-bold text-purple-600">{{ formatNumber(currentItem.ord) }}</span>
               </div>
             </div>
-
-            <!-- 详细数据 -->
             <NDescriptions :column="2" bordered size="small" label-placement="left" class="mt-4">
               <NDescriptionsItem label="平均客单价">
                 <span class="font-semibold">{{ formatPrice(currentItem.avgCaRub) }}</span>
@@ -687,8 +660,6 @@ onMounted(() => {
                 <span class="font-semibold text-green-600">{{ currentItem.searchUsersToOrdUsers?.toFixed(2) }}%</span>
               </NDescriptionsItem>
             </NDescriptions>
-
-            <!-- 竞争等级 -->
             <div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-sm font-medium text-gray-700">竞争热度</span>
@@ -711,7 +682,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ========== 词云容器 ========== */
 .word-cloud-container {
   display: flex;
   flex-wrap: wrap;
@@ -762,13 +732,13 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* ========== 全局表格内 Tag 加粗 ========== */
 :global(.n-data-table .n-tag) {
   font-weight: 600;
 }

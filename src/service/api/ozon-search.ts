@@ -1,3 +1,4 @@
+//@/service/api/ozon-search.ts
 import { request } from '@/service/request';
 
 // ========== 查询参数 ==========

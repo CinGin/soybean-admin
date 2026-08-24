@@ -4,6 +4,7 @@
 // Read more: https://github.com/soybeanjs/elegant-router
 
 import type { GeneratedRoute } from '@elegant-router/types';
+import { onRenderTracked } from 'vue';
 
 export const generatedRoutes: GeneratedRoute[] = [
   {
@@ -87,6 +88,17 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'ozon_mapping',
+        path: '/ozon/mapping',
+        component: 'view.ozon_mapping',
+        meta: {
+          title: 'ozon_mapping',
+          i18nKey: 'route.ozon_mapping',
+          icon: 'material-symbols:all-match-outline',
+          order: 3
+        }
+      },
+      {
         name: 'ozon_product',
         path: '/ozon/product',
         component: 'view.ozon_product',
@@ -120,5 +132,29 @@ export const generatedRoutes: GeneratedRoute[] = [
       icon: 'streamline:interface-calendar-check-approve-calendar-check-date-day-month-success',
       order: 3
     }
+  },
+  {
+    name: 'system',
+    path: '/system',
+    component: 'layout.base',
+    meta: {
+      title: 'system',
+      i18nKey: 'route.system',
+      icon: 'hugeicons:system-update-01',
+      order: 100
+    },
+    children: [
+      {
+        name: 'system_config',
+        path: '/system/config',
+        component: 'view.system_config',
+        meta: {
+          title: 'system_config',
+          i18nKey: 'route.system_config',
+          icon: 'material-symbols:settings-cinematic-blur-outline',
+          order: 1
+        }
+      }
+    ]
   }
 ];

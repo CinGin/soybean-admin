@@ -170,9 +170,12 @@ const routeMap: RouteMap = {
   "iframe-page": "/iframe-page/:url",
   "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?",
   "ozon": "/ozon",
+  "ozon_mapping": "/ozon/mapping",
   "ozon_product": "/ozon/product",
   "ozon_search": "/ozon/search",
-  "product": "/product"
+  "product": "/product",
+  "system": "/system",
+  "system_config": "/system/config"
 };
 
 /**
