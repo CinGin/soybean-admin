@@ -36,9 +36,16 @@ declare namespace Api {
       soldSum?: number;
       latestSoldCount?: number;
       previousSoldCount?: number;
-      growthRate?: number | null; // 接口可能返回字符串或 null
-      salesDynamics?: number | null; // 接口返回字符串，如 "-91.8"
+      growthRate?: number | null;
+      salesDynamics?: number | null;
       updateDate?: string;
+      /** 上架卖家Client-Id（本系统卖家账号标识） */
+      listingClientId?: string;
+      /** 上架卖家名称 */
+      listingSellerName?: string;
+      /** 上架来源及状态: 0-未上架, 1-自建(审核中), 2-自建(成功), 3-自建(失败), 4-跟卖(审核中), 5-跟卖(成功), 6-跟卖(失败) */
+      listingSource?: number;
+      listingTaskId?: string;
     }
 
     /** 分页响应 */

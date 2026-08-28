@@ -230,11 +230,11 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
-    product: 'Product',
     ozon: 'Ozon',
     ozon_product: 'Product',
     ozon_search: 'HotSearch',
     ozon_mapping: 'HotSearchMapping',
+    'ozon_listing-record': 'ListingRecord',
     system: 'System',
     system_config: 'Config'
   },

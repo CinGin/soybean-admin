@@ -5,19 +5,58 @@ import {
   getSystemConfigs,
   updateSystemConfigs,
   addDynamicParam,
-  deleteDynamicParam
+  deleteDynamicParam,
+  verifyPassword
 } from '@/service/api/system-config';
 import type { SystemConfig } from '@/typings/api/system-config';
 
 const message = useMessage();
-const dialog = useDialog(); // ✅ 新增：使用 Naive UI 的对话框
+const dialog = useDialog();
 
+// ---------- 密码锁状态 ----------
+const locked = ref(true);
+const passwordInput = ref('');
+const verifying = ref(false);
+const passwordError = ref('');
+
+// 检查 sessionStorage 是否已解锁
+const unlockFlag = sessionStorage.getItem('page_unlocked');
+if (unlockFlag === 'true') {
+  locked.value = false;
+}
+
+async function handleUnlock() {
+  const pwd = passwordInput.value.trim();
+  if (!pwd) {
+    passwordError.value = '请输入密码';
+    return;
+  }
+  verifying.value = true;
+  passwordError.value = '';
+  try {
+    const res = (await verifyPassword(pwd)) as unknown as {
+      code: number;
+      msg?: string;
+    };
+    if (res.code === 200) {
+      locked.value = false;
+      sessionStorage.setItem('page_unlocked', 'true');
+    } else {
+      passwordError.value = res.msg || '密码错误';
+    }
+  } catch {
+    passwordError.value = '验证失败，请重试';
+  } finally {
+    verifying.value = false;
+  }
+}
+
+// ---------- 原有数据 ----------
 const configList = ref<SystemConfig[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const newParam = ref({ key: '', value: '' });
 
-// ✅ 修改：操作列现在为所有可编辑行显示"保存"和"删除"按钮
 const columns: DataTableColumns<SystemConfig> = [
   {
     title: '参数名',
@@ -42,13 +81,16 @@ const columns: DataTableColumns<SystemConfig> = [
   {
     title: '参数值',
     key: 'paramValue',
-    width: 260,
+    width: 300,
     render(row, index) {
+      const isPasswordField = row.paramKey === 'system.set.password';
       return h(NInput, {
         value: configList.value[index]?.paramValue ?? '',
         disabled: !row.editable,
         size: 'small',
         placeholder: '请输入参数值',
+        type: isPasswordField ? 'password' : 'text',
+        showPasswordOn: 'click', // 密码字段可点击眼睛图标显示明文
         'onUpdate:value': (val: string) => {
           configList.value[index].paramValue = val;
         }
@@ -65,14 +107,11 @@ const columns: DataTableColumns<SystemConfig> = [
   {
     title: '操作',
     key: 'actions',
-    width: 160, // ✅ 加宽以容纳两个按钮
+    width: 190,
     align: 'center',
     render(row, index) {
-      // ✅ 修复：不可编辑的行不显示任何按钮
       if (!row.editable) return null;
-
       return h('div', { class: 'flex items-center justify-center gap-2' }, [
-        // ✅ 新增：单项保存按钮
         h(
           NButton,
           {
@@ -83,7 +122,6 @@ const columns: DataTableColumns<SystemConfig> = [
           },
           { default: () => '保存' }
         ),
-        // 仅非必填项显示删除按钮
         !row.required
           ? h(
               NButton,
@@ -120,10 +158,9 @@ function handleRefresh() {
   fetchData();
 }
 
-// ✅ 新增：单项保存（带确认弹窗）
+// ----- 单项保存 -----
 function handleSingleSave(row: SystemConfig, index: number) {
   const currentValue = configList.value[index]?.paramValue ?? '';
-
   dialog.warning({
     title: '确认修改',
     content: `确定要将参数 "${row.paramKey}" 的值修改为 "${currentValue}" 吗？`,
@@ -132,7 +169,6 @@ function handleSingleSave(row: SystemConfig, index: number) {
     maskClosable: false,
     onPositiveClick: async () => {
       try {
-        // 单项保存：构造只包含当前行的数组调用批量更新接口
         await updateSystemConfigs([configList.value[index]]);
         message.success(`参数 "${row.paramKey}" 修改成功`);
       } catch (error) {
@@ -143,7 +179,7 @@ function handleSingleSave(row: SystemConfig, index: number) {
   });
 }
 
-// ✅ 修改：批量保存（带确认弹窗）
+// ----- 批量保存 -----
 function handleSave() {
   dialog.warning({
     title: '确认批量保存',
@@ -166,7 +202,7 @@ function handleSave() {
   });
 }
 
-// ✅ 修改：删除（使用 dialog 替代 window.confirm）
+// ----- 删除 -----
 function handleDelete(key: string) {
   dialog.error({
     title: '确认删除',
@@ -211,62 +247,88 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6 bg-gray-50 min-h-screen">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-1">Redis 配置管理</h2>
-        <p class="text-gray-500 text-sm">管理 Ozon 爬虫系统 Redis 配置参数</p>
+  <div class="relative min-h-screen">
+    <!-- 密码锁定遮罩层 -->
+    <div v-if="locked" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-70">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 w-96">
+        <div class="text-center mb-6">
+          <div class="text-4xl mb-2">🔒</div>
+          <h3 class="text-xl font-bold text-gray-800">页面已锁定</h3>
+          <p class="text-gray-500 text-sm mt-1">请输入管理员密码解锁</p>
+        </div>
+        <div class="space-y-4">
+          <NInput
+            v-model:value="passwordInput"
+            type="password"
+            placeholder="请输入密码"
+            size="large"
+            show-password-on="click"
+            :disabled="verifying"
+            @keyup.enter="handleUnlock"
+          />
+          <p v-if="passwordError" class="text-red-500 text-sm">
+            {{ passwordError }}
+          </p>
+          <NButton type="primary" block size="large" :loading="verifying" @click="handleUnlock">解锁</NButton>
+        </div>
       </div>
-      <NButton type="primary" :loading="loading" @click="handleRefresh">
-        <template #icon>
-          <SvgIcon icon="ph:arrows-clockwise" />
-        </template>
-        刷新
-      </NButton>
     </div>
 
-    <NCard :bordered="false" class="shadow-sm rounded-xl" content-class="p-0">
-      <NDataTable
-        :columns="columns"
-        :data="configList"
-        :loading="loading"
-        :pagination="false"
-        :bordered="true"
-        :striped="true"
-        :single-line="false"
-        :row-key="(row: SystemConfig) => row.paramKey"
-        size="small"
-      />
-
-      <div class="mt-4 p-4 bg-white rounded-lg border border-gray-100">
-        <h3 class="text-lg font-semibold mb-3">添加动态参数</h3>
-        <NForm inline label-placement="left" label-width="auto" size="medium">
-          <NFormItem label="参数名">
-            <NInput v-model:value="newParam.key" placeholder="输入参数名" clearable class="w-40" />
-          </NFormItem>
-          <NFormItem label="参数值">
-            <NInput v-model:value="newParam.value" placeholder="输入参数值" clearable class="w-40" />
-          </NFormItem>
-          <NFormItem>
-            <NButton type="primary" @click="handleAddParam">
-              <template #icon>
-                <SvgIcon icon="ph:plus" />
-              </template>
-              添加
-            </NButton>
-          </NFormItem>
-        </NForm>
-      </div>
-
-      <div class="flex justify-end p-4 border-t border-gray-100">
-        <NButton type="primary" :loading="saving" @click="handleSave">
+    <!-- 正常页面内容 -->
+    <div v-show="!locked" class="p-6 bg-gray-50 min-h-screen">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800 mb-1">Redis 配置管理</h2>
+          <p class="text-gray-500 text-sm">管理 Ozon 爬虫系统 Redis 配置参数</p>
+        </div>
+        <NButton type="primary" :loading="loading" @click="handleRefresh">
           <template #icon>
-            <SvgIcon icon="ph:floppy-disk" />
+            <SvgIcon icon="ph:arrows-clockwise" />
           </template>
-          保存全部配置
+          刷新
         </NButton>
       </div>
-    </NCard>
+      <NCard :bordered="false" class="shadow-sm rounded-xl" content-class="p-0">
+        <NDataTable
+          :columns="columns"
+          :data="configList"
+          :loading="loading"
+          :pagination="false"
+          :bordered="true"
+          :striped="true"
+          :single-line="false"
+          :row-key="(row: SystemConfig) => row.paramKey"
+          size="small"
+        />
+        <div class="mt-4 p-4 bg-white rounded-lg border border-gray-100">
+          <h3 class="text-lg font-semibold mb-3">添加动态参数</h3>
+          <NForm inline label-placement="left" label-width="auto" size="medium">
+            <NFormItem label="参数名">
+              <NInput v-model:value="newParam.key" placeholder="输入参数名" clearable class="w-40" />
+            </NFormItem>
+            <NFormItem label="参数值">
+              <NInput v-model:value="newParam.value" placeholder="输入参数值" clearable class="w-40" />
+            </NFormItem>
+            <NFormItem>
+              <NButton type="primary" @click="handleAddParam">
+                <template #icon>
+                  <SvgIcon icon="ph:plus" />
+                </template>
+                添加
+              </NButton>
+            </NFormItem>
+          </NForm>
+        </div>
+        <div class="flex justify-end p-4 border-t border-gray-100">
+          <NButton type="primary" :loading="saving" @click="handleSave">
+            <template #icon>
+              <SvgIcon icon="ph:floppy-disk" />
+            </template>
+            保存全部配置
+          </NButton>
+        </div>
+      </NCard>
+    </div>
   </div>
 </template>
 

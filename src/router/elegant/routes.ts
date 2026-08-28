@@ -88,6 +88,17 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'ozon_listing-record',
+        path: '/ozon/listing-record',
+        component: 'view.ozon_listing-record',
+        meta: {
+          title: 'ozon_listing-record',
+          i18nKey: 'route.ozon_listing-record',
+          order: 4,
+          icon: 'material-symbols:azm-outline'
+        }
+      },
+      {
         name: 'ozon_mapping',
         path: '/ozon/mapping',
         component: 'view.ozon_mapping',
@@ -105,7 +116,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ozon_product',
           i18nKey: 'route.ozon_product',
-          icon: 'streamline:interface-calendar-check-approve-calendar-check-date-day-month-success',
+          icon: 'streamline:mail-send-email-send-email-paper-airplane',
           order: 1
         }
       },
@@ -121,17 +132,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
-  },
-  {
-    name: 'product',
-    path: '/product',
-    component: 'layout.base$view.product',
-    meta: {
-      title: 'product',
-      i18nKey: 'route.product',
-      icon: 'streamline:interface-calendar-check-approve-calendar-check-date-day-month-success',
-      order: 3
-    }
   },
   {
     name: 'system',

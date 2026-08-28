@@ -226,11 +226,11 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
-    product: '测试商品详情',
     ozon: 'Ozon',
     ozon_product: '商品详情',
     ozon_search: '热搜关键词',
     ozon_mapping: '类目匹配',
+    'ozon_listing-record': '上架记录',
     system: '系统设置',
     system_config: '参数设置'
   },

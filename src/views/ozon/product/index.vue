@@ -15,22 +15,30 @@ import {
   NDescriptionsItem,
   NModal,
   NCollapseTransition,
-  NTreeSelect
+  NTreeSelect,
+  NForm,
+  NFormItem,
+  NInputNumber,
+  NSpace,
+  type DataTableColumns
 } from 'naive-ui';
 import { fetchOzonProducts, type OzonProductVO, type OzonProductQuery } from '@/service/api/ozon-product';
 import { fetchOzonCategoryTree } from '@/service/api/ozon-category';
+import { fetchSellerInfoList, type SellerInfoVO } from '@/service/api/ozon-seller-info';
+import { useAuthStore } from '@/store/modules/auth';
+import { createListing, followListing } from '@/service/api/ozon-product';
 
 defineOptions({ name: 'OzonProductList' });
 
-// ✅ 修复：获取全局注册的 SvgIcon 组件引用，供 h() 渲染函数使用
 const SvgIconComp = resolveComponent('SvgIcon');
-
 const message = useMessage();
 const { loading, startLoading, endLoading } = useLoading();
+const authStore = useAuthStore();
 
 // ========== 数据状态 ==========
 const productList = ref<OzonProductVO[]>([]);
 const total = ref(0);
+const sellerList = ref<SellerInfoVO[]>([]);
 
 interface StatCard {
   label: string;
@@ -39,6 +47,7 @@ interface StatCard {
   bg: string;
   color: string;
 }
+
 const statCards = ref<StatCard[]>([
   { label: '商品总数', value: '0', icon: 'ph:package', bg: 'from-[#667eea] to-[#764ba2]', color: '' },
   { label: '本页订购总量', value: '0 件', icon: 'ph:shopping-cart', bg: 'from-[#f093fb] to-[#f5576c]', color: '' },
@@ -56,34 +65,144 @@ const searchParams = reactive<OzonProductQuery>({
   category1: '',
   sellerName: '',
   sortField: 't1.id',
-  sortDir: 'desc'
+  sortDir: 'desc',
+  listingSource: undefined
 });
 
 const expanded = ref(false);
 const detailVisible = ref(false);
 const currentProduct = ref<OzonProductVO | null>(null);
 
-// ★ 类目树相关
+// 类目树相关
 const categoryTree = ref<any[]>([]);
 const selectedCategoryIds = ref<string[]>([]);
+
+// 上架弹窗相关
+const listingModalVisible = ref(false);
+const listingMode = ref<'create' | 'follow'>('create');
+const listingRow = ref<OzonProductVO | null>(null);
+const formData = reactive({
+  offerId: '',
+  price: null as number | null,
+  oldPrice: null as number | null,
+  selectedSellerId: null as string | null
+});
+
+const operator = computed(() => authStore.userInfo?.userName || 'system');
+
+const listingStatusOptions = [
+  { label: '全部状态', value: undefined },
+  { label: '未上架', value: 0 },
+  { label: '自建审核中', value: 1 },
+  { label: '自建成功', value: 2 },
+  { label: '自建失败', value: 3 },
+  { label: '跟卖审核中', value: 4 },
+  { label: '跟卖成功', value: 5 },
+  { label: '跟卖失败', value: 6 }
+];
+
+// 计算默认价格：平均价格 = soldSum / latestSoldCount，原价 = 平均价格 * 1.1
+function setDefaultPrices(row: OzonProductVO) {
+  const soldSum = Number(row.soldSum);
+  const soldCount = Number(row.latestSoldCount);
+  if (soldSum > 0 && soldCount > 0) {
+    const avgPrice = soldSum / soldCount;
+    formData.price = Number(avgPrice.toFixed(2));
+    formData.oldPrice = Number((avgPrice * 1.1).toFixed(2));
+  } else {
+    formData.price = null;
+    formData.oldPrice = null;
+  }
+}
+
+function openCreateModal(row: OzonProductVO) {
+  listingMode.value = 'create';
+  listingRow.value = row;
+  formData.offerId = '';
+  formData.selectedSellerId = null;
+  setDefaultPrices(row);
+  listingModalVisible.value = true;
+}
+
+function openFollowModal(row: OzonProductVO) {
+  listingMode.value = 'follow';
+  listingRow.value = row;
+  formData.offerId = '';
+  formData.selectedSellerId = null;
+  setDefaultPrices(row);
+  listingModalVisible.value = true;
+}
+
+async function handleSubmitListing() {
+  if (!listingRow.value) return;
+  if (formData.price === null || formData.price <= 0) {
+    message.warning('请填写有效的价格');
+    return;
+  }
+  if (!formData.selectedSellerId) {
+    message.warning('请选择卖家店铺');
+    return;
+  }
+  const selectedSeller = sellerList.value.find(item => item.clientId === formData.selectedSellerId);
+  if (!selectedSeller) {
+    message.error('所选卖家不存在，请刷新后重试');
+    return;
+  }
+  startLoading();
+  try {
+    const baseData = {
+      productId: listingRow.value.variantId!,
+      offerId: formData.offerId || undefined,
+      price: String(formData.price),
+      oldPrice: formData.oldPrice ? String(formData.oldPrice) : undefined,
+      operator: operator.value,
+      clientId: selectedSeller.clientId,
+      sellerName: selectedSeller.companyName
+    };
+    let taskId: string;
+    if (listingMode.value === 'create') {
+      taskId = (await createListing(baseData)).data!;
+    } else {
+      taskId = (await followListing(baseData)).data!;
+    }
+    message.success(`上架任务已提交，任务ID: ${taskId}`);
+    listingModalVisible.value = false;
+    loadData({ ...searchParams });
+  } catch {
+    message.error('上架失败，请重试');
+  } finally {
+    endLoading();
+  }
+}
+
+// ========== 加载卖家列表 ==========
+async function loadSellerList() {
+  try {
+    const { data, error } = await fetchSellerInfoList({ pageNo: 1, pageSize: 100 });
+    if (!error && data) {
+      sellerList.value = data.records || [];
+    }
+  } catch (e) {
+    console.error('加载卖家列表失败', e);
+  }
+}
 
 // ========== 请求取消与组件卸载标志 ==========
 let abortController: AbortController | null = null;
 let isUnmounted = false;
 
-// ========== 加载数据 ==========
 async function loadData(params: OzonProductQuery = {}) {
   if (abortController) {
     abortController.abort();
   }
   abortController = new AbortController();
-
   startLoading();
   try {
     const queryParams: OzonProductQuery = {
+      ...searchParams,
       ...params,
-      page: searchParams.page,
-      size: searchParams.size,
+      page: params.page ?? searchParams.page,
+      size: params.size ?? searchParams.size,
       sortField: params.sortField || searchParams.sortField || 't1.id',
       sortDir: params.sortDir || searchParams.sortDir || 'desc'
     };
@@ -106,7 +225,6 @@ async function loadData(params: OzonProductQuery = {}) {
   }
 }
 
-// ========== 本地统计 ==========
 function computeLocalStats() {
   const list = productList.value;
   const totalCount = total.value;
@@ -124,7 +242,6 @@ function computeLocalStats() {
   statCards.value[3].color = getGrowthColor(avgGrowth);
 }
 
-// ========== 搜索/重置/分页/排序 ==========
 function handleSearch() {
   if (selectedCategoryIds.value.length > 0) {
     const names = findCategoryNames(selectedCategoryIds.value, categoryTree.value);
@@ -143,6 +260,7 @@ function handleReset() {
   searchParams.brand = '';
   searchParams.category1 = '';
   searchParams.sellerName = '';
+  searchParams.listingSource = undefined;
   searchParams.page = 1;
   searchParams.size = 20;
   searchParams.sortField = 't1.id';
@@ -152,12 +270,13 @@ function handleReset() {
 
 function handlePageChange(page: number) {
   searchParams.page = page;
-  loadData({ ...searchParams });
+  loadData({ page, size: searchParams.size });
 }
+
 function handlePageSizeChange(size: number) {
   searchParams.size = size;
   searchParams.page = 1;
-  loadData({ ...searchParams });
+  loadData({ page: 1, size });
 }
 
 function handleSorterChange(sorter: { columnKey: string; order: 'ascend' | 'descend' | false }) {
@@ -180,21 +299,34 @@ function handleSorterChange(sorter: { columnKey: string; order: 'ascend' | 'desc
   loadData({ ...searchParams });
 }
 
-// ========== 详情/链接/刷新 ==========
+const pagination = computed(() => ({
+  page: searchParams.page,
+  pageSize: searchParams.size,
+  itemCount: total.value,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onUpdatePage: handlePageChange,
+  onUpdatePageSize: handlePageSizeChange
+}));
+
 function handleViewDetail(row: OzonProductVO) {
   currentProduct.value = row;
   detailVisible.value = true;
 }
+
 function handleCloseDetail(val: boolean) {
   detailVisible.value = false;
   if (!val) currentProduct.value = null;
 }
+
 function handleOpenLink(url: string) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer');
 }
+
 function handleRefresh() {
   loadData({ ...searchParams });
 }
+
 function toggleExpand() {
   expanded.value = !expanded.value;
 }
@@ -204,6 +336,7 @@ function formatPrice(v: number | null | undefined): string {
   if (v == null) return '—';
   return `₽${Number(v).toLocaleString('ru-RU', { maximumFractionDigits: 0 })}`;
 }
+
 function formatSoldCount(v: number | null | undefined): string {
   if (v == null) return '—';
   return v.toLocaleString('ru-RU');
@@ -224,6 +357,7 @@ function priceTagType(p: number | null | undefined): 'success' | 'warning' | 'er
   if (p < 10000) return 'warning';
   return 'error';
 }
+
 function getGrowthColor(v: string | number | null | undefined): string {
   const num = v !== null && v !== undefined ? Number(v) : NaN;
   if (isNaN(num)) return '#909399';
@@ -232,12 +366,10 @@ function getGrowthColor(v: string | number | null | undefined): string {
   return '#909399';
 }
 
-// ========== 图片加载错误处理 ==========
 function handleImgError(e: Event) {
   (e.target as HTMLImageElement).style.display = 'none';
 }
 
-// ========== 复制功能 ==========
 async function copyText(text: string) {
   if (!text) return;
   try {
@@ -258,7 +390,6 @@ async function copyText(text: string) {
   }
 }
 
-// ✅ 修复：复制按钮工厂中使用 SvgIconComp 替代字符串 'SvgIcon'
 function makeCopyBtn(text: string, label: string) {
   return h(
     NButton,
@@ -280,7 +411,6 @@ function makeCopyBtn(text: string, label: string) {
   );
 }
 
-// ★★★ 类目树加载函数 ★★★
 async function loadCategoryTree() {
   try {
     const response = await fetchOzonCategoryTree();
@@ -319,47 +449,80 @@ function findCategoryNames(ids: string[], nodes: any[]): string[] {
   return names;
 }
 
-// ========== 表格列定义 ==========
-const columns = computed(() => [
-  // ★ 商品列
+const listingStatusMap: Record<number, { label: string; type: 'default' | 'info' | 'success' | 'warning' | 'error' }> =
+  {
+    0: { label: '未上架', type: 'default' },
+    1: { label: '自建审核中', type: 'info' },
+    2: { label: '自建成功', type: 'success' },
+    3: { label: '自建失败', type: 'error' },
+    4: { label: '跟卖审核中', type: 'warning' },
+    5: { label: '跟卖成功', type: 'success' },
+    6: { label: '跟卖失败', type: 'error' }
+  };
+
+function getListingStatusTag(value: number | undefined) {
+  const status = listingStatusMap[value ?? 0];
+  return h(NTag, { size: 'small', type: status.type, round: true }, { default: () => status.label });
+}
+
+// 商品图片渲染（带印章）
+function renderProductImage(row: OzonProductVO) {
+  const img = row.photo
+    ? h('img', {
+        src: row.photo,
+        alt: row.name || '',
+        class: 'w-80px h-80px object-contain rounded-6px border border-gray-200 bg-gray-50',
+        onerror: handleImgError
+      })
+    : h('div', { class: 'w-60px h-60px flex items-center justify-center bg-gray-100 rounded-6px' }, [
+        h(SvgIconComp, { icon: 'ph:package', width: 22, height: 22, style: 'color:#c0c4cc;' })
+      ]);
+
+  const showStamp = row.listingSellerName && row.listingSource !== 0 && row.listingSource !== undefined;
+  if (!showStamp) return img;
+
+  return h('div', { class: 'relative inline-block' }, [
+    img,
+    h(
+      'div',
+      {
+        class: 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none whitespace-nowrap',
+        style: {
+          border: '2px solid #e6a23c',
+          color: '#e6a23c',
+          padding: '2px 6px',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          background: 'rgba(255,255,255,0.85)',
+          borderRadius: '4px',
+          transform: 'rotate(-20deg)'
+        }
+      },
+      row.listingSellerName
+    )
+  ]);
+}
+
+const columns = computed<DataTableColumns<OzonProductVO>>(() => [
   {
     title: '商品',
     key: 'name',
-    width: 380,
+    width: 350,
     sorter: true,
     render: (row: OzonProductVO) => {
       const children: any[] = [];
-
-      if (row.photo) {
-        children.push(
-          h('img', {
-            src: row.photo,
-            alt: row.name || '',
-            class: 'w-100px h-100px object-contain rounded-6px border border-gray-200 flex-shrink-0 bg-gray-50',
-            onerror: handleImgError
-          })
-        );
-      } else {
-        // ✅ 修复：占位图标使用 SvgIconComp
-        children.push(
-          h('div', { class: 'w-60px h-60px flex items-center justify-center bg-gray-100 rounded-6px flex-shrink-0' }, [
-            h(SvgIconComp, { icon: 'ph:package', width: 22, height: 22, style: 'color:#c0c4cc;' })
-          ])
-        );
-      }
-
+      children.push(renderProductImage(row));
       const infoChildren: any[] = [
         h(
           'div',
           {
             class: 'font-medium text-gray-800 break-all',
-            style: 'max-width:260px;',
+            style: 'max-width:220px;',
             title: row.name || ''
           },
           row.name || '—'
         )
       ];
-
       if (row.brand) {
         infoChildren.push(
           h('div', { class: 'flex items-center gap-4px text-11px flex-wrap' }, [
@@ -387,7 +550,6 @@ const columns = computed(() => [
           ])
         );
       }
-
       children.push(h('div', { class: 'flex flex-col gap-2px min-w-0 flex-1' }, infoChildren));
       return h('div', { class: 'flex items-start gap-8px' }, children);
     }
@@ -395,7 +557,7 @@ const columns = computed(() => [
   {
     title: '类目',
     key: 'category1',
-    width: 130,
+    width: 115,
     ellipsis: { tooltip: true },
     render: (row: OzonProductVO) => {
       const items: any[] = [h('div', { class: 'font-medium text-gray-800' }, row.category1 || '—')];
@@ -405,30 +567,17 @@ const columns = computed(() => [
     }
   },
   {
-    title: '商品特征',
-    key: 'binStatus',
-    width: 88,
-    align: 'center' as const,
-    render: (row: OzonProductVO) => {
-      if (!row.binStatus) return h('span', { class: 'text-gray-300' }, '—');
-      const map: Record<string, { color: string; bg: string; label: string }> = {
-        leader: { color: '#fff', bg: 'linear-gradient(135deg,#f093fb,#f5576c)', label: '🔥 Leader' },
-        top_50: { color: '#fff', bg: 'linear-gradient(135deg,#667eea,#764ba2)', label: '⭐ Top50' },
-        NoStatus: { color: '#909399', bg: '#f4f4f5', label: '普通' }
-      };
-      const s = map[row.binStatus] || { color: '#303133', bg: '#e8e8e8', label: row.binStatus };
-      return h(
-        NTag,
-        { size: 'small', round: true, style: `color:${s.color};background:${s.bg};border:none;font-weight:600;` },
-        { default: () => s.label }
-      );
-    }
+    title: '上架状态',
+    key: 'listingSource',
+    width: 95,
+    align: 'center',
+    render: (row: OzonProductVO) => getListingStatusTag(row.listingSource)
   },
   {
     title: '订购金额',
     key: 'soldSum',
-    width: 120,
-    align: 'right' as const,
+    width: 106,
+    align: 'right',
     sorter: true,
     render: (row: OzonProductVO) => {
       if (row.soldSum == null) return h('span', { class: 'text-gray-300' }, '—');
@@ -442,8 +591,8 @@ const columns = computed(() => [
   {
     title: '已订购数量',
     key: 'latestSoldCount',
-    width: 112,
-    align: 'right' as const,
+    width: 102,
+    align: 'right',
     sorter: true,
     render: (row: OzonProductVO) => {
       const cur = row.latestSoldCount,
@@ -457,8 +606,8 @@ const columns = computed(() => [
   {
     title: '上期销量',
     key: 'previousSoldCount',
-    width: 86,
-    align: 'right' as const,
+    width: 78,
+    align: 'right',
     sorter: true,
     render: (row: OzonProductVO) => {
       if (row.previousSoldCount == null) return h('span', { class: 'text-gray-300' }, '—');
@@ -468,8 +617,8 @@ const columns = computed(() => [
   {
     title: '增长率',
     key: 'growthRate',
-    width: 96,
-    align: 'center' as const,
+    width: 84,
+    align: 'center',
     sorter: true,
     render: (row: OzonProductVO) => {
       const p = formatPercent(row.growthRate);
@@ -488,8 +637,8 @@ const columns = computed(() => [
   {
     title: '动态',
     key: 'salesDynamics',
-    width: 96,
-    align: 'center' as const,
+    width: 74,
+    align: 'center',
     sorter: true,
     render: (row: OzonProductVO) => {
       const p = formatPercent(row.salesDynamics);
@@ -508,25 +657,51 @@ const columns = computed(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 76,
-    align: 'center' as const,
-    fixed: 'right' as const,
+    width: 140,
+    align: 'center',
+    fixed: 'right',
     render: (row: OzonProductVO) => {
-      // ✅ 修复：操作列详情按钮使用 SvgIconComp 替代字符串 'SvgIcon'
-      return h(
-        NButton,
-        { size: 'small', type: 'primary', ghost: true, onClick: () => handleViewDetail(row) },
-        {
-          default: () => '详情',
-          icon: () => h(SvgIconComp, { icon: 'ph:eye', width: 16, height: 16 })
-        }
-      );
+      return h('div', { class: 'flex flex-col gap-4px items-stretch' }, [
+        h(
+          NButton,
+          { size: 'small', type: 'primary', ghost: true, onClick: () => handleViewDetail(row), class: 'w-full' },
+          {
+            default: () => '详情',
+            icon: () => h(SvgIconComp, { icon: 'ph:eye', width: 15, height: 15 })
+          }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'success',
+            ghost: true,
+            onClick: () => openCreateModal(row),
+            disabled: row.listingSource === 2 || row.listingSource === 5,
+            class: 'w-full'
+          },
+          { default: () => '创建' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'warning',
+            ghost: true,
+            onClick: () => openFollowModal(row),
+            disabled: !row.sku || row.listingSource === 4 || row.listingSource === 5 || row.listingSource === 6,
+            class: 'w-full'
+          },
+          { default: () => 'sku创建' }
+        )
+      ]);
     }
   }
 ]);
 
 onMounted(() => {
   loadCategoryTree();
+  loadSellerList();
   loadData({ ...searchParams });
 });
 
@@ -543,7 +718,7 @@ onBeforeUnmount(() => {
     <!-- 搜索卡片 -->
     <NCard :bordered="false" class="rounded-12px shadow-sm mb-16px" size="small">
       <div class="grid grid-cols-12 gap-x-16px gap-y-12px items-start">
-        <div class="col-span-4">
+        <div class="col-span-3">
           <div class="flex items-center gap-8px">
             <span class="text-13px text-gray-500 whitespace-nowrap" style="min-width: 65px">全局搜索</span>
             <NInput
@@ -583,7 +758,19 @@ onBeforeUnmount(() => {
             />
           </div>
         </div>
-        <div class="col-span-4 flex items-center justify-end gap-8px">
+        <div class="col-span-2">
+          <div class="flex items-center gap-8px">
+            <span class="text-13px text-gray-500 whitespace-nowrap" style="min-width: 65px">上架状态</span>
+            <NSelect
+              v-model:value="searchParams.listingSource"
+              :options="listingStatusOptions"
+              placeholder="全部状态"
+              clearable
+              @update:value="handleSearch"
+            />
+          </div>
+        </div>
+        <div class="col-span-3 flex items-center justify-end gap-8px">
           <NButton type="primary" :loading="loading" :disabled="loading" @click="handleSearch">
             <template #icon>
               <SvgIcon icon="ph:magnifying-glass" />
@@ -602,7 +789,6 @@ onBeforeUnmount(() => {
           </NButton>
         </div>
       </div>
-
       <NCollapseTransition :show="expanded">
         <div class="grid grid-cols-12 gap-x-16px gap-y-12px mt-12px pt-12px border-t border-dashed border-gray-200">
           <div class="col-span-3">
@@ -649,35 +835,21 @@ onBeforeUnmount(() => {
               <NRadioGroup v-model:value="searchParams.sortDir" class="flex" style="width: 180px">
                 <NRadioButton
                   value="asc"
-                  style="
-                    flex: 1;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 2px;
-                  "
+                  style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0"
                 >
-                  <SvgIcon icon="ph:sort-ascending" style="font-size: 12px; flex-shrink: 0" />
-                  升序
+                  <div style="display: flex; align-items: center; gap: 6px">
+                    <SvgIcon icon="ph:sort-ascending" style="font-size: 16px; flex-shrink: 0" />
+                    <span style="font-size: 13px; white-space: nowrap">升序</span>
+                  </div>
                 </NRadioButton>
                 <NRadioButton
                   value="desc"
-                  style="
-                    flex: 1;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 2px;
-                  "
+                  style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0"
                 >
-                  <SvgIcon icon="ph:sort-descending" style="font-size: 12px; flex-shrink: 0" />
-                  降序
+                  <div style="display: flex; align-items: center; gap: 6px">
+                    <SvgIcon icon="ph:sort-descending" style="font-size: 16px; flex-shrink: 0" />
+                    <span style="font-size: 13px; white-space: nowrap">降序</span>
+                  </div>
                 </NRadioButton>
               </NRadioGroup>
             </div>
@@ -730,17 +902,9 @@ onBeforeUnmount(() => {
         :columns="columns"
         :data="productList"
         :loading="loading"
-        :pagination="{
-          page: searchParams.page,
-          pageSize: searchParams.size,
-          itemCount: total,
-          showSizePicker: true,
-          pageSizes: [10, 20, 50, 100],
-          onUpdatePage: handlePageChange,
-          onUpdatePageSize: handlePageSizeChange
-        }"
+        :pagination="pagination"
         :remote="true"
-        :scroll-x="1400"
+        :scroll-x="1450"
         striped
         hoverable
         @update:sorter="handleSorterChange"
@@ -752,7 +916,7 @@ onBeforeUnmount(() => {
       v-model:show="detailVisible"
       preset="card"
       :title="currentProduct?.name || '商品详情'"
-      style="max-width: 540px; width: 90%"
+      style="max-width: 550px; width: 94%"
       :bordered="false"
       :mask-closable="true"
       @update:show="handleCloseDetail"
@@ -774,7 +938,6 @@ onBeforeUnmount(() => {
           <div class="text-18px font-bold text-gray-800 text-center leading-relaxed">
             {{ currentProduct.name || '—' }}
           </div>
-
           <NDescriptions :column="1" bordered size="small" label-placement="left">
             <NDescriptionsItem label="变体ID">
               <NTag size="small">{{ currentProduct.variantId || '—' }}</NTag>
@@ -812,15 +975,26 @@ onBeforeUnmount(() => {
                 (ID:{{ currentProduct.sellerId }})
               </span>
             </NDescriptionsItem>
+            <NDescriptionsItem label="上架卖家">
+              <span v-if="currentProduct.listingSellerName">
+                {{ currentProduct.listingSellerName }} ({{ currentProduct.listingClientId }})
+              </span>
+              <span v-else>—</span>
+            </NDescriptionsItem>
             <NDescriptionsItem label="销售模式">
               <NTag v-if="currentProduct.salesSchema" size="small" type="primary" round>
                 {{ currentProduct.salesSchema }}
               </NTag>
               <span v-else>—</span>
             </NDescriptionsItem>
-            <NDescriptionsItem label="商品特征">
-              <NTag v-if="currentProduct.binStatus" size="small" type="warning" round>
-                {{ currentProduct.binStatus }}
+            <NDescriptionsItem label="上架状态">
+              <NTag
+                v-if="currentProduct.listingSource !== undefined"
+                :type="listingStatusMap[currentProduct.listingSource]?.type || 'default'"
+                round
+                size="small"
+              >
+                {{ listingStatusMap[currentProduct.listingSource]?.label || '未知' }}
               </NTag>
               <span v-else>—</span>
             </NDescriptionsItem>
@@ -857,7 +1031,29 @@ onBeforeUnmount(() => {
             </NDescriptionsItem>
             <NDescriptionsItem label="更新时间">{{ currentProduct.updateDate || '—' }}</NDescriptionsItem>
           </NDescriptions>
-
+          <NSpace justify="center" class="pt-8px">
+            <NButton
+              type="success"
+              :disabled="currentProduct.listingSource === 2 || currentProduct.listingSource === 5"
+              @click="openCreateModal(currentProduct)"
+            >
+              <template #icon><SvgIcon icon="ph:plus-circle" /></template>
+              创建（自建）
+            </NButton>
+            <NButton
+              type="warning"
+              :disabled="
+                !currentProduct.sku ||
+                currentProduct.listingSource === 4 ||
+                currentProduct.listingSource === 5 ||
+                currentProduct.listingSource === 6
+              "
+              @click="openFollowModal(currentProduct)"
+            >
+              <template #icon><SvgIcon icon="ph:copy" /></template>
+              SKU创建（跟卖）
+            </NButton>
+          </NSpace>
           <div class="pt-4px">
             <NButton v-if="currentProduct.link" type="primary" block @click="handleOpenLink(currentProduct.link!)">
               <template #icon>
@@ -869,21 +1065,71 @@ onBeforeUnmount(() => {
         </div>
       </template>
     </NModal>
+
+    <!-- 上架弹窗 -->
+    <NModal
+      v-model:show="listingModalVisible"
+      preset="card"
+      :title="listingMode === 'create' ? '自建商品上架' : 'SKU跟卖上架'"
+      style="max-width: 480px; width: 90%"
+      :bordered="false"
+      :mask-closable="true"
+    >
+      <NForm
+        v-if="listingRow"
+        :model="formData"
+        label-placement="left"
+        label-width="100px"
+        require-mark-placement="right"
+      >
+        <NFormItem label="商品ID">
+          <NInput :value="listingRow.variantId" disabled />
+        </NFormItem>
+        <NFormItem label="商品名称">
+          <NInput :value="listingRow.name" disabled />
+        </NFormItem>
+        <NFormItem label="卖家店铺" required>
+          <NSelect
+            v-model:value="formData.selectedSellerId"
+            :options="sellerList.map(s => ({ label: `${s.companyName} (${s.clientId})`, value: s.clientId }))"
+            placeholder="请选择卖家"
+            filterable
+            clearable
+          />
+        </NFormItem>
+        <NFormItem label="货号(offerId)" path="offerId">
+          <NInput v-model:value="formData.offerId" placeholder="留空则自动生成" clearable />
+        </NFormItem>
+        <NFormItem label="价格(RUB)" path="price" required>
+          <NInputNumber
+            v-model:value="formData.price"
+            :min="0"
+            :precision="2"
+            placeholder="请输入价格"
+            clearable
+            class="w-full"
+          />
+        </NFormItem>
+        <NFormItem label="原价(RUB)" path="oldPrice">
+          <NInputNumber
+            v-model:value="formData.oldPrice"
+            :min="0"
+            :precision="2"
+            placeholder="可选"
+            clearable
+            class="w-full"
+          />
+        </NFormItem>
+        <NFormItem label="操作人">
+          <NInput :value="operator" disabled />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="listingModalVisible = false">取消</NButton>
+          <NButton type="primary" :loading="loading" @click="handleSubmitListing">提交上架</NButton>
+        </NSpace>
+      </template>
+    </NModal>
   </div>
 </template>
-
-<style scoped>
-:global(.copy-btn) {
-  color: #9ca3af !important;
-  transition: color 0.2s;
-}
-
-:global(.copy-btn:hover) {
-  color: #3b82f6 !important;
-}
-
-:global(td .n-button.copy-btn) {
-  display: inline-flex !important;
-  visibility: visible !important;
-}
-</style>

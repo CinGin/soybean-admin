@@ -1,28 +1,20 @@
 import { request } from '@/service/request';
 
-// ========== 查询参数 ==========
+// ========== 查询参数（保持不变） ==========
 export interface OzonProductQuery {
-  /** 页码，从1开始 */
   page?: number;
-  /** 每页条数 */
   size?: number;
-  /** 全局模糊搜索（匹配名称/品牌/货号/卖家） */
   keyword?: string;
-  /** 商品名称模糊 */
   name?: string;
-  /** 品牌模糊 */
   brand?: string;
-  /** 一级类目模糊 */
   category1?: string;
-  /** 卖家名称模糊 */
   sellerName?: string;
-  /** 排序字段 */
   sortField?: string;
-  /** 排序方向 asc/desc */
   sortDir?: string;
+  listingSource?: number; // ★ 新增上架状态筛选
 }
 
-// ========== Ozon 商品 VO ==========
+// ========== Ozon 商品 VO（保持不变） ==========
 export interface OzonProductVO {
   variantId?: string;
   sku?: string;
@@ -48,9 +40,16 @@ export interface OzonProductVO {
   salesDynamics?: number | null;
   growthRate?: number | null;
   updateDate?: string;
+  /** 上架卖家Client-Id（本系统卖家账号标识） */
+  listingClientId?: string;
+  /** 上架卖家名称 */
+  listingSellerName?: string;
+  /** 新增：上架来源及状态 */
+  listingSource?: number;
+  listingTaskId?: string;
 }
 
-// ========== 分页响应 ==========
+// ========== 分页响应（保持不变） ==========
 export interface OzonProductPageResult {
   total: number;
   page: number;
@@ -58,29 +57,74 @@ export interface OzonProductPageResult {
   records: OzonProductVO[];
 }
 
-// ========== API 方法 ==========
+// ========== 上架命令 DTO ==========
+export interface CreateListingCommand {
+  productId: string;
+  offerId?: string;
+  price: string;
+  oldPrice?: string;
+  operator: string;
+  // ★ 新增
+  clientId: string;
+  sellerName: string;
+}
 
+export interface FollowListingCommand {
+  productId: string;
+  offerId?: string;
+  price: string;
+  oldPrice?: string;
+  operator: string;
+  clientId: string;
+  sellerName: string;
+}
+
+// ========== API 方法 ==========
 /**
- * 分页查询 Ozon 商品明细（含两期销量对比）
- * @param params 查询参数
- * @param signal 可选，用于取消请求的 AbortSignal
+ * 分页查询 Ozon 商品明细
  */
 export function fetchOzonProducts(params: OzonProductQuery, signal?: AbortSignal) {
-  return request<OzonProductPageResult>({
+  const { page, size, ...rest } = params;
+  return request({
     url: '/api/ozon/products',
     method: 'get',
-    params,
-    signal, // 传递取消信号
-    timeout: 300000 // 可选：设置 300 秒超时，可根据实际情况调整
+    params: {
+      ...rest,
+      pageNo: page, // 后端期望 pageNo
+      pageSize: size // 后端期望 pageSize
+    },
+    signal
   });
 }
 
 /**
- * 获取单个商品详情（按 variantId）
+ * 获取单个商品详情
  */
 export function fetchOzonProductDetail(variantId: string) {
   return request<OzonProductVO>({
-    url: `/api/ozon/products/${variantId}`,
+    url: `/api/ozon/products/detail/${variantId}`,
     method: 'get'
+  });
+}
+
+/**
+ * 自建商品上架
+ */
+export function createListing(data: CreateListingCommand) {
+  return request<string>({
+    url: '/api/ozon/listing/create',
+    method: 'post',
+    data
+  });
+}
+
+/**
+ * SKU跟卖商品上架
+ */
+export function followListing(data: FollowListingCommand) {
+  return request<string>({
+    url: '/api/ozon/listing/follow',
+    method: 'post',
+    data
   });
 }

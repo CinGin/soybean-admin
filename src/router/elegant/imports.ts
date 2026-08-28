@@ -21,9 +21,9 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "iframe-page": () => import("@/views/_builtin/iframe-page/[url].vue"),
   login: () => import("@/views/_builtin/login/index.vue"),
   home: () => import("@/views/home/index.vue"),
+  "ozon_listing-record": () => import("@/views/ozon/listing-record/index.vue"),
   ozon_mapping: () => import("@/views/ozon/mapping/index.vue"),
   ozon_product: () => import("@/views/ozon/product/index.vue"),
   ozon_search: () => import("@/views/ozon/search/index.vue"),
-  product: () => import("@/views/product/index.vue"),
   system_config: () => import("@/views/system/config/index.vue"),
 };

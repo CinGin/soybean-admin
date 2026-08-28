@@ -64,3 +64,36 @@ export function deleteDynamicParam(key: string) {
     method: 'delete'
   });
 }
+/**
+ * 界面密码验证
+ * ✅ 修复：使用双重断言避免 TS 2352 类型错误
+ */
+export async function verifyPassword(password: string): Promise<{ code: number; msg?: string }> {
+  const res = await request<any>({
+    url: '/api/redis/config/verify-password',
+    method: 'post',
+    data: { password }
+  });
+
+  // 情况1: 直接返回 { code, msg, data }
+  if (res && typeof res === 'object' && 'code' in res) {
+    const result = res as unknown as { code: number; msg?: string };
+    return { code: result.code, msg: result.msg };
+  }
+
+  // 情况2: 嵌套在 data 中 { data: { code, msg } }
+  if (res?.data && typeof res.data === 'object' && 'code' in res.data) {
+    const data = res.data as unknown as { code: number; msg?: string };
+    return { code: data.code, msg: data.msg };
+  }
+
+  // 情况3: 嵌套在 response.data 中 (Soybean 拦截器包装)
+  if (res?.response?.data && typeof res.response.data === 'object' && 'code' in res.response.data) {
+    const data = res.response.data as unknown as { code: number; msg?: string };
+    return { code: data.code, msg: data.msg };
+  }
+
+  // 情况4: 其他未知格式，默认返回错误
+  console.warn('[verifyPassword] 无法解析响应:', res);
+  return { code: 500, msg: '验证服务异常' };
+}
