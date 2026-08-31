@@ -175,7 +175,8 @@ const routeMap: RouteMap = {
   "ozon_product": "/ozon/product",
   "ozon_search": "/ozon/search",
   "system": "/system",
-  "system_config": "/system/config"
+  "system_config": "/system/config",
+  "system_seller": "/system/seller"
 };
 
 /**

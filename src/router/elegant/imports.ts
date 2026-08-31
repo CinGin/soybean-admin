@@ -26,4 +26,5 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   ozon_product: () => import("@/views/ozon/product/index.vue"),
   ozon_search: () => import("@/views/ozon/search/index.vue"),
   system_config: () => import("@/views/system/config/index.vue"),
+  system_seller: () => import("@/views/system/seller/index.vue"),
 };

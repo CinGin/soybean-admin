@@ -235,6 +235,7 @@ const local: App.I18n.Schema = {
     ozon_search: 'HotSearch',
     ozon_mapping: 'HotSearchMapping',
     'ozon_listing-record': 'ListingRecord',
+    system_seller: 'Seller',
     system: 'System',
     system_config: 'Config'
   },

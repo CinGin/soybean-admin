@@ -30,6 +30,7 @@ declare module "@elegant-router/types" {
     "ozon_search": "/ozon/search";
     "system": "/system";
     "system_config": "/system/config";
+    "system_seller": "/system/seller";
   };
 
   /**
@@ -96,6 +97,7 @@ declare module "@elegant-router/types" {
     | "ozon_product"
     | "ozon_search"
     | "system_config"
+    | "system_seller"
   >;
 
   /**

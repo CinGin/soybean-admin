@@ -83,7 +83,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'ozon',
       i18nKey: 'route.ozon',
-      icon: 'streamline-ultimate:e-commerce-touch-buy-bold',
+      icon: 'cib:apache-spark',
       order: 2
     },
     children: [
@@ -153,6 +153,17 @@ export const generatedRoutes: GeneratedRoute[] = [
           i18nKey: 'route.system_config',
           icon: 'material-symbols:settings-cinematic-blur-outline',
           order: 1
+        }
+      },
+      {
+        name: 'system_seller',
+        path: '/system/seller',
+        component: 'view.system_seller',
+        meta: {
+          title: 'system_seller',
+          i18nKey: 'route.system_seller',
+          icon: 'material-symbols:settings-account-box-outline',
+          order: 2
         }
       }
     ]

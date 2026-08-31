@@ -26,25 +26,23 @@ defineOptions({ name: 'OzonListingRecord' });
 const message = useMessage();
 const { loading, startLoading, endLoading } = useLoading();
 
-// ========== 数据状态 ==========
 const recordList = ref<OzonListingRecordVO[]>([]);
 const total = ref(0);
 const expanded = ref(false);
 const detailVisible = ref(false);
 const currentRecord = ref<OzonListingRecordVO | null>(null);
-const updatingTaskId = ref<string | null>(null); // 正在手动更新的任务ID
+const updatingTaskId = ref<string | null>(null);
 
-// ========== 查询参数 ==========
 const searchParams = reactive<OzonListingRecordQuery>({
   pageNo: 1,
   pageSize: 20,
   productId: '',
-  shopId: '',
   listingType: undefined,
   ozonTaskId: '',
   offerId: '',
   status: undefined,
   operator: '',
+  newProductId: '', // 改为 string
   startTime: undefined,
   endTime: undefined,
   sortField: 'createdAt',
@@ -99,7 +97,9 @@ async function loadData(params: Partial<OzonListingRecordQuery> = {}) {
       pageNo: params.pageNo ?? searchParams.pageNo,
       pageSize: params.pageSize ?? searchParams.pageSize,
       sortField: params.sortField || searchParams.sortField || 'createdAt',
-      sortDir: params.sortDir || searchParams.sortDir || 'desc'
+      sortDir: params.sortDir || searchParams.sortDir || 'desc',
+      // 确保 newProductId 为字符串或 undefined，空字符串转为 undefined 避免发送空参数
+      newProductId: searchParams.newProductId?.trim() || undefined
     };
 
     const { data, error } = await fetchOzonListingRecords(queryParams);
@@ -128,12 +128,12 @@ function handleSearch() {
 function handleReset() {
   dateRange.value = null;
   searchParams.productId = '';
-  searchParams.shopId = '';
   searchParams.listingType = undefined;
   searchParams.ozonTaskId = '';
   searchParams.offerId = '';
   searchParams.status = undefined;
   searchParams.operator = '';
+  searchParams.newProductId = '';
   searchParams.startTime = undefined;
   searchParams.endTime = undefined;
   searchParams.pageNo = 1;
@@ -159,12 +159,13 @@ function handleSorterChange(sorter: { columnKey: string; order: 'ascend' | 'desc
   const sortFieldMap: Record<string, string> = {
     id: 'id',
     productId: 'productId',
-    shopId: 'shopId',
     listingType: 'listingType',
     ozonTaskId: 'ozonTaskId',
     offerId: 'offerId',
     status: 'status',
     operator: 'operator',
+    newProductId: 'newProductId',
+    stockSet: 'stockSet',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -190,15 +191,12 @@ function handleViewDetail(row: OzonListingRecordVO) {
   detailVisible.value = true;
 }
 
-/**
- * 手动更新状态：调用后端接口，等待3秒后刷新列表
- */
 async function handleManualUpdate(row: OzonListingRecordVO) {
   if (!row.ozonTaskId) {
     message.warning('该记录缺少任务ID，无法更新');
     return;
   }
-  if (updatingTaskId.value === row.ozonTaskId) return; // 防止重复点击
+  if (updatingTaskId.value === row.ozonTaskId) return;
 
   updatingTaskId.value = row.ozonTaskId;
   try {
@@ -214,7 +212,8 @@ async function handleManualUpdate(row: OzonListingRecordVO) {
   }
 }
 
-function formatDateTime(dateStr?: string): string {
+// ★ 修复：允许 null 类型
+function formatDateTime(dateStr?: string | null): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
   return date.toLocaleString('zh-CN', { hour12: false });
@@ -230,14 +229,28 @@ function getTypeTag(type: number) {
   return h(NTag, { size: 'small', type: config.type, round: true }, { default: () => config.label });
 }
 
+function getStockTag(row: OzonListingRecordVO) {
+  if (row.stockSet === 1) {
+    return h(NTag, { size: 'small', type: 'success', round: true }, { default: () => '已设置' });
+  }
+  return h(NTag, { size: 'small', type: 'default', round: true }, { default: () => '未设置' });
+}
+
 const columns = computed<DataTableColumns<OzonListingRecordVO>>(() => [
-  { title: 'ID', key: 'id', width: 80, sorter: true },
+  { title: 'ID', key: 'id', width: 70, sorter: true },
   { title: '商品ID', key: 'productId', width: 120, ellipsis: { tooltip: true }, sorter: true },
-  { title: '店铺ID', key: 'shopId', width: 110, ellipsis: { tooltip: true }, sorter: true },
+  {
+    title: '新商品SKU',
+    key: 'newProductId',
+    width: 120,
+    ellipsis: { tooltip: true },
+    sorter: true,
+    render: (row: OzonListingRecordVO) => row.newProductId || '—'
+  },
   {
     title: '类型',
     key: 'listingType',
-    width: 90,
+    width: 80,
     align: 'center',
     sorter: true,
     render: (row: OzonListingRecordVO) => getTypeTag(row.listingType)
@@ -250,20 +263,41 @@ const columns = computed<DataTableColumns<OzonListingRecordVO>>(() => [
     sorter: true,
     render: (row: OzonListingRecordVO) => row.ozonTaskId || '—'
   },
-  { title: '货号', key: 'offerId', width: 120, ellipsis: { tooltip: true }, sorter: true },
+  { title: '货号', key: 'offerId', width: 110, ellipsis: { tooltip: true }, sorter: true },
   { title: '来源SKU', key: 'sourceSku', width: 110, ellipsis: { tooltip: true } },
   {
     title: '状态',
     key: 'status',
-    width: 100,
+    width: 90,
     align: 'center',
     sorter: true,
     render: (row: OzonListingRecordVO) => getStatusTag(row.status)
   },
   {
+    title: '库存状态',
+    key: 'stockSet',
+    width: 100,
+    align: 'center',
+    sorter: true,
+    render: (row: OzonListingRecordVO) => getStockTag(row)
+  },
+  {
+    title: '仓库ID',
+    key: 'stockWarehouseId',
+    width: 100,
+    ellipsis: { tooltip: true },
+    render: (row: OzonListingRecordVO) => row.stockWarehouseId || '—'
+  },
+  {
+    title: '库存更新时间',
+    key: 'stockUpdatedAt',
+    width: 160,
+    render: (row: OzonListingRecordVO) => formatDateTime(row.stockUpdatedAt)
+  },
+  {
     title: '错误信息',
     key: 'errorMsg',
-    width: 200,
+    width: 180,
     ellipsis: { tooltip: true },
     render: (row: OzonListingRecordVO) => {
       if (!row.errorMsg) return '—';
@@ -277,25 +311,25 @@ const columns = computed<DataTableColumns<OzonListingRecordVO>>(() => [
       );
     }
   },
-  { title: '操作人', key: 'operator', width: 100, ellipsis: { tooltip: true }, sorter: true },
+  { title: '操作人', key: 'operator', width: 90, ellipsis: { tooltip: true }, sorter: true },
   {
     title: '创建时间',
     key: 'createdAt',
-    width: 160,
+    width: 150,
     sorter: true,
     render: (row: OzonListingRecordVO) => formatDateTime(row.createdAt)
   },
   {
     title: '更新时间',
     key: 'updatedAt',
-    width: 160,
+    width: 150,
     sorter: true,
     render: (row: OzonListingRecordVO) => formatDateTime(row.updatedAt)
   },
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 140,
     align: 'center',
     fixed: 'right',
     render: (row: OzonListingRecordVO) => {
@@ -306,8 +340,6 @@ const columns = computed<DataTableColumns<OzonListingRecordVO>>(() => [
           { default: () => '详情' }
         )
       ];
-
-      // 仅当状态为 PENDING 时显示“更新状态”按钮
       if (row.status === 'PENDING') {
         buttons.push(
           h(
@@ -324,7 +356,6 @@ const columns = computed<DataTableColumns<OzonListingRecordVO>>(() => [
           )
         );
       }
-
       return h('div', { class: 'flex flex-col gap-4px items-stretch' }, buttons);
     }
   }
@@ -358,8 +389,13 @@ onBeforeUnmount(() => {
         </div>
         <div class="col-span-3">
           <div class="flex items-center gap-8px">
-            <span class="text-13px text-gray-500 whitespace-nowrap" style="min-width: 65px">店铺ID</span>
-            <NInput v-model:value="searchParams.shopId" placeholder="店铺ID" clearable @keydown.enter="handleSearch" />
+            <span class="text-13px text-gray-500 whitespace-nowrap" style="min-width: 65px">新商品SKU</span>
+            <NInput
+              v-model:value="searchParams.newProductId"
+              placeholder="新商品SKU"
+              clearable
+              @keydown.enter="handleSearch"
+            />
           </div>
         </div>
         <div class="col-span-3">
@@ -375,11 +411,15 @@ onBeforeUnmount(() => {
         </div>
         <div class="col-span-3 flex items-center justify-end gap-8px">
           <NButton type="primary" :loading="loading" :disabled="loading" @click="handleSearch">
-            <template #icon><SvgIcon icon="ph:magnifying-glass" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:magnifying-glass" />
+            </template>
             搜索
           </NButton>
           <NButton :disabled="loading" @click="handleReset">
-            <template #icon><SvgIcon icon="ph:arrow-counter-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrow-counter-clockwise" />
+            </template>
             重置
           </NButton>
           <NButton text type="primary" @click="expanded = !expanded">
@@ -455,7 +495,9 @@ onBeforeUnmount(() => {
             Ozon 上架记录
           </span>
           <NButton size="small" :disabled="loading" @click="loadData()">
-            <template #icon><SvgIcon icon="ph:arrows-clockwise" /></template>
+            <template #icon>
+              <SvgIcon icon="ph:arrows-clockwise" />
+            </template>
             刷新
           </NButton>
         </div>
@@ -478,13 +520,14 @@ onBeforeUnmount(() => {
       v-model:show="detailVisible"
       preset="card"
       title="上架记录详情"
-      style="max-width: 600px; width: 90%"
+      style="max-width: 650px; width: 90%"
       :bordered="false"
       :mask-closable="true"
     >
       <NDescriptions v-if="currentRecord" :column="2" bordered size="small" label-placement="left">
         <NDescriptionsItem label="ID">{{ currentRecord.id }}</NDescriptionsItem>
         <NDescriptionsItem label="商品ID">{{ currentRecord.productId }}</NDescriptionsItem>
+        <NDescriptionsItem label="新商品SKU">{{ currentRecord.newProductId || '—' }}</NDescriptionsItem>
         <NDescriptionsItem label="店铺ID">{{ currentRecord.shopId }}</NDescriptionsItem>
         <NDescriptionsItem label="上架类型">
           <NTag size="small" :type="listingTypeMap[currentRecord.listingType]?.type || 'default'" round>
@@ -499,6 +542,9 @@ onBeforeUnmount(() => {
             {{ statusMap[currentRecord.status]?.label || currentRecord.status }}
           </NTag>
         </NDescriptionsItem>
+        <NDescriptionsItem label="库存状态">{{ currentRecord.stockSet === 1 ? '已设置' : '未设置' }}</NDescriptionsItem>
+        <NDescriptionsItem label="仓库ID">{{ currentRecord.stockWarehouseId || '—' }}</NDescriptionsItem>
+        <NDescriptionsItem label="库存更新时间">{{ formatDateTime(currentRecord.stockUpdatedAt) }}</NDescriptionsItem>
         <NDescriptionsItem label="操作人">{{ currentRecord.operator || '—' }}</NDescriptionsItem>
         <NDescriptionsItem label="创建时间">{{ formatDateTime(currentRecord.createdAt) }}</NDescriptionsItem>
         <NDescriptionsItem label="更新时间">{{ formatDateTime(currentRecord.updatedAt) }}</NDescriptionsItem>

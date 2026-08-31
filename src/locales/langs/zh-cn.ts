@@ -232,7 +232,8 @@ const local: App.I18n.Schema = {
     ozon_mapping: '类目匹配',
     'ozon_listing-record': '上架记录',
     system: '系统设置',
-    system_config: '参数设置'
+    system_config: '参数设置',
+    system_seller: '店铺设置'
   },
   page: {
     login: {
