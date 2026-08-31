@@ -12,9 +12,18 @@ export interface OzonListingRecordVO {
   createdAt: string;
   updatedAt: string;
   newProductId?: number | null;
+  newSku?: number | null; // ★ 平台生成的商品SKU
   stockSet?: number;
   stockWarehouseId?: string | null;
   stockUpdatedAt?: string | null;
+  rebuildStatus?: string | null; // ★ 重建状态
+  rebuildTaskId?: string | null; // 重建任务ID
+  rebuildOfferId?: string | null; // 重建使用的offer_id
+  rebuildNewProductId?: number | null; // 重建成功后新商品ID
+  rebuildErrorMsg?: string | null; // 重建失败原因
+  rebuildAttemptCount?: number | null; // 重建尝试次数
+  originalArchived?: boolean | null; // 原商品是否归档
+  originalDeleted?: boolean | null; // 原商品是否删除
 }
 
 export interface OzonListingRecordQuery {

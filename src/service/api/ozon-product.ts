@@ -88,6 +88,7 @@ export function fetchOzonProducts(params: OzonProductQuery, signal?: AbortSignal
   return request({
     url: '/api/ozon/products',
     method: 'get',
+    timeout: 1800000, // 设置等待时长为30秒
     params: {
       ...rest,
       pageNo: page, // 后端期望 pageNo

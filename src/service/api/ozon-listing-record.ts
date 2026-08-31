@@ -21,3 +21,14 @@ export function manualCheckStatus(taskId: string) {
     method: 'post'
   });
 }
+
+/**
+ * 手动触发跟卖失败重建
+ * @param recordId 上架记录ID
+ */
+export function manualRebuild(recordId: number) {
+  return request<void>({
+    url: `/api/ozon/listing/rebuild/${recordId}`,
+    method: 'post'
+  });
+}
