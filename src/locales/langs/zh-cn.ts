@@ -231,6 +231,16 @@ const local: App.I18n.Schema = {
     ozon_search: '热搜关键词',
     ozon_mapping: '类目匹配',
     'ozon_listing-record': '上架记录',
+    ozon_pricing: '定价',
+    'ozon_auto-listing': '自动上架',
+    'ozon_commission-rate': '佣金费率',
+    ozon_weight: '人工介入重量校准',
+    'ozon_calibration-queue': '重量校准',
+    alibaba: '1688',
+    'alibaba_search-product': '多语言搜索',
+    'alibaba_order-list': '订单列表',
+    'alibaba_order-detail': '订单详情',
+    'alibaba_create-order': '创建订单',
     system: '系统设置',
     system_config: '参数设置',
     system_seller: '店铺设置'
@@ -285,7 +295,7 @@ const local: App.I18n.Schema = {
     home: {
       branchDesc:
         '为了方便大家开发和更新合并，我们对main分支的代码进行了精简，只保留了首页菜单，其余内容已移至example分支进行维护。预览地址显示的内容即为example分支的内容。',
-      greeting: '早安，{userName}, 今天又是充满活力的一天!',
+      greeting: '早安，{userName}, 今天又是坐车去糖厂的一天!',
       weatherDesc: '今日多云转晴，20℃ - 25℃!',
       projectCount: '项目数',
       todo: '待办',
@@ -303,11 +313,11 @@ const local: App.I18n.Schema = {
       projectNews: {
         title: '项目动态',
         moreNews: '更多动态',
-        desc1: 'Soybean 在2021年5月28日创建了开源项目 soybean-admin!',
-        desc2: 'Yanbowe 向 soybean-admin 提交了一个bug，多标签栏不会自适应。',
-        desc3: 'Soybean 准备为 soybean-admin 的发布做充分的准备工作!',
-        desc4: 'Soybean 正在忙于为soybean-admin写项目说明文档！',
-        desc5: 'Soybean 刚才把工作台页面随便写了一些，凑合能看了！'
+        desc1: '我是可爱的皮卡丘~',
+        desc2: '我是可爱的皮卡丘~',
+        desc3: '我是可爱的皮卡丘~',
+        desc4: '我是可爱的皮卡丘~',
+        desc5: '我是可爱的皮卡丘~'
       },
       creativity: '创意'
     }

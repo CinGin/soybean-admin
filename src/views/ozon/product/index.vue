@@ -81,11 +81,35 @@ const selectedCategoryIds = ref<string[]>([]);
 const listingModalVisible = ref(false);
 const listingMode = ref<'create' | 'follow'>('create');
 const listingRow = ref<OzonProductVO | null>(null);
+
+// 跟卖表单
 const formData = reactive({
   offerId: '',
   price: null as number | null,
   oldPrice: null as number | null,
   selectedSellerId: null as string | null
+});
+
+// 自建表单
+const createForm = reactive({
+  name: '',
+  description: '',
+  descriptionCategoryId: '',
+  typeId: '',
+  price: null as number | null,
+  oldPrice: null as number | null,
+  vat: '0',
+  currencyCode: 'RUB',
+  depth: '',
+  height: '',
+  width: '',
+  weight: '',
+  dimensionUnit: 'mm',
+  weightUnit: 'g',
+  images: '',
+  primaryImage: '',
+  barcode: '',
+  attributesJson: '[]'
 });
 
 const operator = computed(() => authStore.userInfo?.userName || 'system');
@@ -118,9 +142,28 @@ function setDefaultPrices(row: OzonProductVO) {
 function openCreateModal(row: OzonProductVO) {
   listingMode.value = 'create';
   listingRow.value = row;
+  // 初始化自建表单
+  createForm.name = row.name || '';
+  createForm.description = '';
+  createForm.descriptionCategoryId = row.category1Id || '';
+  createForm.typeId = row.category3Id || '';
+  createForm.price = Number(row.soldSum) / Number(row.latestSoldCount) || null;
+  createForm.oldPrice = createForm.price ? Number((createForm.price * 1.1).toFixed(2)) : null;
+  createForm.vat = '0';
+  createForm.currencyCode = 'RUB';
+  createForm.depth = '';
+  createForm.height = '';
+  createForm.width = '';
+  createForm.weight = '';
+  createForm.dimensionUnit = 'mm';
+  createForm.weightUnit = 'g';
+  createForm.images = row.photo || '';
+  createForm.primaryImage = row.photo || '';
+  createForm.barcode = '';
+  createForm.attributesJson = '[]';
+  // 清空跟卖字段
   formData.offerId = '';
   formData.selectedSellerId = null;
-  setDefaultPrices(row);
   listingModalVisible.value = true;
 }
 
@@ -134,10 +177,13 @@ function openFollowModal(row: OzonProductVO) {
 }
 
 async function handleSubmitListing() {
-  if (!listingRow.value) return;
+  if (listingMode.value === 'follow' && !listingRow.value) return;
   if (formData.price === null || formData.price <= 0) {
-    message.warning('请填写有效的价格');
-    return;
+    // 注意：自建使用 createForm.price，这里分开判断
+    if (listingMode.value === 'follow') {
+      message.warning('请填写有效的价格');
+      return;
+    }
   }
   if (!formData.selectedSellerId) {
     message.warning('请选择卖家店铺');
@@ -148,22 +194,81 @@ async function handleSubmitListing() {
     message.error('所选卖家不存在，请刷新后重试');
     return;
   }
+
   startLoading();
   try {
-    const baseData = {
-      productId: listingRow.value.variantId!,
-      offerId: formData.offerId || undefined,
-      price: String(formData.price),
-      oldPrice: formData.oldPrice ? String(formData.oldPrice) : undefined,
-      operator: operator.value,
-      clientId: selectedSeller.clientId,
-      sellerName: selectedSeller.companyName
-    };
     let taskId: string;
-    if (listingMode.value === 'create') {
-      taskId = (await createListing(baseData)).data!;
+    if (listingMode.value === 'follow') {
+      if (formData.price === null || formData.price <= 0) {
+        message.warning('请填写有效的价格');
+        return;
+      }
+      const followData = {
+        productId: listingRow.value!.variantId!,
+        offerId: formData.offerId || undefined,
+        price: String(formData.price),
+        oldPrice: formData.oldPrice ? String(formData.oldPrice) : undefined,
+        operator: operator.value,
+        clientId: selectedSeller.clientId,
+        sellerName: selectedSeller.companyName
+      };
+      taskId = (await followListing(followData)).data!;
     } else {
-      taskId = (await followListing(baseData)).data!;
+      // 自建校验
+      if (
+        !createForm.name ||
+        !createForm.descriptionCategoryId ||
+        !createForm.typeId ||
+        !createForm.depth ||
+        !createForm.height ||
+        !createForm.width ||
+        !createForm.weight ||
+        createForm.price === null ||
+        createForm.price <= 0
+      ) {
+        message.warning('请补全自建商品的所有必填信息');
+        return;
+      }
+      const images = createForm.images
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (images.length === 0) {
+        message.warning('请至少提供一张商品图片URL');
+        return;
+      }
+      let attributes = [];
+      try {
+        attributes = JSON.parse(createForm.attributesJson || '[]');
+      } catch {
+        message.warning('属性JSON格式错误');
+        return;
+      }
+      const createData = {
+        offerId: formData.offerId || undefined,
+        name: createForm.name,
+        description: createForm.description,
+        descriptionCategoryId: createForm.descriptionCategoryId,
+        typeId: createForm.typeId,
+        price: String(createForm.price),
+        oldPrice: createForm.oldPrice ? String(createForm.oldPrice) : undefined,
+        vat: createForm.vat,
+        currencyCode: createForm.currencyCode,
+        depth: createForm.depth,
+        height: createForm.height,
+        width: createForm.width,
+        weight: createForm.weight,
+        dimensionUnit: createForm.dimensionUnit,
+        weightUnit: createForm.weightUnit,
+        images,
+        primaryImage: createForm.primaryImage,
+        barcode: createForm.barcode,
+        attributes,
+        operator: operator.value,
+        clientId: selectedSeller.clientId,
+        sellerName: selectedSeller.companyName
+      };
+      taskId = (await createListing(createData)).data!;
     }
     message.success(`上架任务已提交，任务ID: ${taskId}`);
     listingModalVisible.value = false;
@@ -635,6 +740,13 @@ const columns = computed<DataTableColumns<OzonProductVO>>(() => [
     }
   },
   {
+    title: '工作模式',
+    key: 'salesSchema',
+    width: 100,
+    align: 'center',
+    render: (row: OzonProductVO) => row.salesSchema || '—'
+  },
+  {
     title: '动态',
     key: 'salesDynamics',
     width: 74,
@@ -680,7 +792,7 @@ const columns = computed<DataTableColumns<OzonProductVO>>(() => [
             disabled: row.listingSource === 2 || row.listingSource === 5,
             class: 'w-full'
           },
-          { default: () => '创建' }
+          { default: () => '创建(自建)' }
         ),
         h(
           NButton,
@@ -692,7 +804,7 @@ const columns = computed<DataTableColumns<OzonProductVO>>(() => [
             disabled: !row.sku || row.listingSource === 4 || row.listingSource === 5 || row.listingSource === 6,
             class: 'w-full'
           },
-          { default: () => 'sku创建' }
+          { default: () => 'sku创建(跟卖)' }
         )
       ]);
     }
@@ -1037,7 +1149,9 @@ onBeforeUnmount(() => {
               :disabled="currentProduct.listingSource === 2 || currentProduct.listingSource === 5"
               @click="openCreateModal(currentProduct)"
             >
-              <template #icon><SvgIcon icon="ph:plus-circle" /></template>
+              <template #icon>
+                <SvgIcon icon="ph:plus-circle" />
+              </template>
               创建（自建）
             </NButton>
             <NButton
@@ -1050,7 +1164,9 @@ onBeforeUnmount(() => {
               "
               @click="openFollowModal(currentProduct)"
             >
-              <template #icon><SvgIcon icon="ph:copy" /></template>
+              <template #icon>
+                <SvgIcon icon="ph:copy" />
+              </template>
               SKU创建（跟卖）
             </NButton>
           </NSpace>
@@ -1066,28 +1182,22 @@ onBeforeUnmount(() => {
       </template>
     </NModal>
 
-    <!-- 上架弹窗 -->
+    <!-- 上架弹窗（自建/跟卖动态表单） -->
     <NModal
       v-model:show="listingModalVisible"
       preset="card"
       :title="listingMode === 'create' ? '自建商品上架' : 'SKU跟卖上架'"
-      style="max-width: 480px; width: 90%"
+      style="max-width: 700px; width: 90%"
       :bordered="false"
       :mask-closable="true"
     >
       <NForm
-        v-if="listingRow"
-        :model="formData"
+        :model="listingMode === 'create' ? createForm : formData"
         label-placement="left"
-        label-width="100px"
+        label-width="120px"
         require-mark-placement="right"
       >
-        <NFormItem label="商品ID">
-          <NInput :value="listingRow.variantId" disabled />
-        </NFormItem>
-        <NFormItem label="商品名称">
-          <NInput :value="listingRow.name" disabled />
-        </NFormItem>
+        <!-- 公共字段：卖家店铺、货号、操作人 -->
         <NFormItem label="卖家店铺" required>
           <NSelect
             v-model:value="formData.selectedSellerId"
@@ -1097,29 +1207,89 @@ onBeforeUnmount(() => {
             clearable
           />
         </NFormItem>
-        <NFormItem label="货号(offerId)" path="offerId">
+        <NFormItem label="货号(offerId)">
           <NInput v-model:value="formData.offerId" placeholder="留空则自动生成" clearable />
         </NFormItem>
-        <NFormItem label="价格(RUB)" path="price" required>
-          <NInputNumber
-            v-model:value="formData.price"
-            :min="0"
-            :precision="2"
-            placeholder="请输入价格"
-            clearable
-            class="w-full"
-          />
-        </NFormItem>
-        <NFormItem label="原价(RUB)" path="oldPrice">
-          <NInputNumber
-            v-model:value="formData.oldPrice"
-            :min="0"
-            :precision="2"
-            placeholder="可选"
-            clearable
-            class="w-full"
-          />
-        </NFormItem>
+
+        <!-- 跟卖字段 -->
+        <template v-if="listingMode === 'follow'">
+          <NFormItem label="商品ID">
+            <NInput :value="listingRow?.variantId" disabled />
+          </NFormItem>
+          <NFormItem label="商品名称">
+            <NInput :value="listingRow?.name" disabled />
+          </NFormItem>
+          <NFormItem label="价格(RUB)" required>
+            <NInputNumber v-model:value="formData.price" :min="0" :precision="2" clearable class="w-full" />
+          </NFormItem>
+          <NFormItem label="原价(RUB)">
+            <NInputNumber v-model:value="formData.oldPrice" :min="0" :precision="2" clearable class="w-full" />
+          </NFormItem>
+        </template>
+
+        <!-- 自建字段 -->
+        <template v-else>
+          <NFormItem label="商品名称" required>
+            <NInput v-model:value="createForm.name" />
+          </NFormItem>
+          <NFormItem label="商品描述">
+            <NInput v-model:value="createForm.description" type="textarea" :rows="3" />
+          </NFormItem>
+          <NFormItem label="类目ID" required>
+            <NInput v-model:value="createForm.descriptionCategoryId" />
+          </NFormItem>
+          <NFormItem label="类型ID" required>
+            <NInput v-model:value="createForm.typeId" />
+          </NFormItem>
+          <NFormItem label="价格(RUB)" required>
+            <NInputNumber v-model:value="createForm.price" :min="0" :precision="2" clearable class="w-full" />
+          </NFormItem>
+          <NFormItem label="原价(RUB)">
+            <NInputNumber v-model:value="createForm.oldPrice" :min="0" :precision="2" clearable class="w-full" />
+          </NFormItem>
+          <NFormItem label="增值税率">
+            <NInput v-model:value="createForm.vat" placeholder="如 0, 0.1, 0.2" />
+          </NFormItem>
+          <NFormItem label="货币代码">
+            <NInput v-model:value="createForm.currencyCode" placeholder="如 RUB, CNY" />
+          </NFormItem>
+          <NFormItem label="长(mm)" required>
+            <NInput v-model:value="createForm.depth" />
+          </NFormItem>
+          <NFormItem label="宽(mm)" required>
+            <NInput v-model:value="createForm.width" />
+          </NFormItem>
+          <NFormItem label="高(mm)" required>
+            <NInput v-model:value="createForm.height" />
+          </NFormItem>
+          <NFormItem label="重量(g)" required>
+            <NInput v-model:value="createForm.weight" />
+          </NFormItem>
+          <NFormItem label="尺寸单位">
+            <NInput v-model:value="createForm.dimensionUnit" placeholder="mm / cm / in" />
+          </NFormItem>
+          <NFormItem label="重量单位">
+            <NInput v-model:value="createForm.weightUnit" placeholder="g / kg / lb / oz" />
+          </NFormItem>
+          <NFormItem label="图片URL(逗号分隔)" required>
+            <NInput v-model:value="createForm.images" placeholder="https://...,https://..." />
+          </NFormItem>
+          <NFormItem label="主图URL">
+            <NInput v-model:value="createForm.primaryImage" placeholder="留空则使用第一张图片" />
+          </NFormItem>
+          <NFormItem label="条码">
+            <NInput v-model:value="createForm.barcode" placeholder="可选" />
+          </NFormItem>
+          <NFormItem label="属性(JSON数组)">
+            <NInput
+              v-model:value="createForm.attributesJson"
+              type="textarea"
+              :rows="4"
+              placeholder='[{"id":85,"complex_id":0,"values":[{"dictionary_value_id":0,"value":"品牌名"}]}]'
+            />
+          </NFormItem>
+        </template>
+
         <NFormItem label="操作人">
           <NInput :value="operator" disabled />
         </NFormItem>

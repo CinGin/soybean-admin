@@ -47,7 +47,6 @@ declare namespace Api {
       listingSource?: number;
       listingTaskId?: string;
     }
-
     /** 分页响应 */
     interface OzonProductPageResult {
       total: number;

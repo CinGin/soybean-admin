@@ -5,6 +5,7 @@ import {
   useMessage,
   NButton,
   NTag,
+  NSwitch, // ★ 新增
   NDataTable,
   NCard,
   NInput,
@@ -20,6 +21,8 @@ import {
   fetchSellerInfoList,
   addSeller,
   updateSellerName,
+  updateSellerAlias, // ★ 新增
+  updateSellerEnabled, // ★ 新增
   deleteSeller,
   type SellerInfoVO,
   type SellerInfoQuery
@@ -189,10 +192,73 @@ const pagination = computed(() => ({
   onUpdatePageSize: handlePageSizeChange
 }));
 
+const aliasModalVisible = ref(false);
+const aliasRow = ref<SellerInfoVO | null>(null);
+const aliasForm = reactive({ shopAlias: '' });
+
+function openAliasModal(row: SellerInfoVO) {
+  aliasRow.value = row;
+  aliasForm.shopAlias = row.shopAlias ?? '';
+  aliasModalVisible.value = true;
+}
+
+async function handleAliasSubmit() {
+  if (!aliasRow.value) return;
+  const { error } = await updateSellerAlias(aliasRow.value.id, aliasForm.shopAlias.trim());
+  if (!error) {
+    message.success('别名已保存');
+    aliasModalVisible.value = false;
+    loadData();
+  }
+}
+
 const columns = computed<DataTableColumns<SellerInfoVO>>(() => [
   { title: 'ID', key: 'id', width: 60 },
   { title: '公司名称', key: 'companyName', width: 200, ellipsis: { tooltip: true } },
-  { title: 'INN', key: 'inn', width: 140, ellipsis: { tooltip: true } },
+  {
+    title: '店铺名称',
+    key: 'legalName',
+    width: 200,
+    ellipsis: { tooltip: true },
+    render: (row: SellerInfoVO) => row.legalName || h('span', { class: 'text-gray-400' }, '—')
+  },
+  {
+    title: '店铺别名',
+    key: 'shopAlias',
+    width: 140,
+    render: (row: SellerInfoVO) => {
+      if (row.shopAlias) {
+        return h(
+          NButton,
+          { text: true, type: 'primary', onClick: () => openAliasModal(row) },
+          { default: () => row.shopAlias }
+        );
+      }
+      return h(
+        NButton,
+        { text: true, type: 'info', onClick: () => openAliasModal(row) },
+        { default: () => '+ 设置别名' }
+      );
+    }
+  },
+  {
+    title: '启用',
+    key: 'enabled',
+    width: 80,
+    align: 'center',
+    render: (row: SellerInfoVO) =>
+      h(NSwitch, {
+        value: row.enabled === 1,
+        onUpdateValue: async (v: boolean) => {
+          const { error } = await updateSellerEnabled(row.id, v);
+          if (!error) {
+            message.success(v ? '已启用' : '已禁用');
+            loadData();
+          }
+        }
+      })
+  },
+  { title: '营业执照', key: 'inn', width: 140, ellipsis: { tooltip: true } },
   { title: 'Client-Id', key: 'clientId', width: 120, ellipsis: { tooltip: true } },
   { title: '国家', key: 'country', width: 80 },
   { title: '货币', key: 'currency', width: 80 },
@@ -398,6 +464,19 @@ onMounted(() => {
         <NSpace justify="end">
           <NButton @click="editModalVisible = false">取消</NButton>
           <NButton type="primary" :loading="loading" @click="handleEditSubmit">保存</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+    <NModal v-model:show="aliasModalVisible" preset="card" title="设置店铺别名" class="w-90vw max-w-500px">
+      <NForm>
+        <NFormItem label="店铺别名">
+          <NInput v-model:value="aliasForm.shopAlias" placeholder="如：py交易主店、py交易备用店" clearable />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="aliasModalVisible = false">取消</NButton>
+          <NButton type="primary" @click="handleAliasSubmit">保存</NButton>
         </NSpace>
       </template>
     </NModal>

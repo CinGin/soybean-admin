@@ -41,6 +41,63 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'alibaba',
+    path: '/alibaba',
+    component: 'layout.base',
+    meta: {
+      title: 'alibaba',
+      i18nKey: 'route.alibaba',
+      icon: 'ant-design:alibaba-outlined',
+      order: 1
+    },
+    children: [
+      {
+        name: 'alibaba_create-order',
+        path: '/alibaba/create-order',
+        component: 'view.alibaba_create-order',
+        meta: {
+          title: 'alibaba_create-order',
+          i18nKey: 'route.alibaba_create-order',
+          hideInMenu: true,
+          hideFooter: true
+        }
+      },
+      {
+        name: 'alibaba_order-detail',
+        path: '/alibaba/order-detail',
+        component: 'view.alibaba_order-detail',
+        meta: {
+          title: 'alibaba_order-detail',
+          i18nKey: 'route.alibaba_order-detail',
+          icon: 'tdesign:order',
+          hideInMenu: true
+        }
+      },
+      {
+        name: 'alibaba_order-list',
+        path: '/alibaba/order-list',
+        component: 'view.alibaba_order-list',
+        meta: {
+          title: 'alibaba_order-list',
+          i18nKey: 'route.alibaba_order-list',
+          icon: 'ant-design:alipay-outlined',
+          order: 2
+        }
+      },
+      {
+        name: 'alibaba_search-product',
+        path: '/alibaba/search-product',
+        component: 'view.alibaba_search-product',
+        meta: {
+          title: 'alibaba_search-product',
+          i18nKey: 'route.alibaba_search-product',
+          icon: 'bi:search',
+          order: 1
+        }
+      }
+    ]
+  },
+  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
@@ -48,7 +105,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'home',
       i18nKey: 'route.home',
       icon: 'mdi:monitor-dashboard',
-      order: 1
+      order: 0
     }
   },
   {
@@ -88,13 +145,46 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'ozon_auto-listing',
+        path: '/ozon/auto-listing',
+        component: 'view.ozon_auto-listing',
+        meta: {
+          title: 'ozon_auto-listing',
+          i18nKey: 'route.ozon_auto-listing',
+          icon: 'streamline-color:auto-flash-flat',
+          order: 1
+        }
+      },
+      {
+        name: 'ozon_calibration-queue',
+        path: '/ozon/calibration-queue',
+        component: 'view.ozon_calibration-queue',
+        meta: {
+          title: 'ozon_calibration-queue',
+          i18nKey: 'route.ozon_calibration-queue',
+          icon: 'streamline-kameleon-color:scale-weight-duo',
+          order: 7
+        }
+      },
+      {
+        name: 'ozon_commission-rate',
+        path: '/ozon/commission-rate',
+        component: 'view.ozon_commission-rate',
+        meta: {
+          title: 'ozon_commission-rate',
+          i18nKey: 'route.ozon_commission-rate',
+          icon: 'streamline-freehand-color:business-coaching-strategy-1',
+          order: 8
+        }
+      },
+      {
         name: 'ozon_listing-record',
         path: '/ozon/listing-record',
         component: 'view.ozon_listing-record',
         meta: {
           title: 'ozon_listing-record',
           i18nKey: 'route.ozon_listing-record',
-          order: 4,
+          order: 5,
           icon: 'material-symbols:azm-outline'
         }
       },
@@ -106,7 +196,18 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ozon_mapping',
           i18nKey: 'route.ozon_mapping',
           icon: 'material-symbols:all-match-outline',
-          order: 3
+          order: 4
+        }
+      },
+      {
+        name: 'ozon_pricing',
+        path: '/ozon/pricing',
+        component: 'view.ozon_pricing',
+        meta: {
+          title: 'ozon_pricing',
+          i18nKey: 'route.ozon_pricing',
+          icon: 'hugeicons:sale-tag-02',
+          order: 6
         }
       },
       {
@@ -117,7 +218,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ozon_product',
           i18nKey: 'route.ozon_product',
           icon: 'streamline:mail-send-email-send-email-paper-airplane',
-          order: 1
+          order: 2
         }
       },
       {
@@ -128,7 +229,19 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ozon_search',
           i18nKey: 'route.ozon_search',
           icon: 'streamline:interface-content-fire-lit-flame-torch-trending',
-          order: 2
+          order: 3
+        }
+      },
+      {
+        name: 'ozon_weight',
+        path: '/ozon/weight',
+        component: 'view.ozon_weight',
+        meta: {
+          title: 'ozon_weight',
+          i18nKey: 'route.ozon_weight',
+          icon: 'streamline-kameleon-color:scale-weight-duo',
+          order: 100,
+          hideInMenu: true
         }
       }
     ]

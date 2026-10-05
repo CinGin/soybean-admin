@@ -12,6 +12,8 @@ export interface SellerInfoVO {
   clientId: string;
   appKey: string;
   updatedAt?: string; // ★ 新增字段
+  shopAlias: string;
+  enabled: number;
 }
 
 export interface SellerInfoQuery {
@@ -25,6 +27,24 @@ export interface SellerInfoQuery {
   subscriptionType?: string;
   sortField?: string;
   sortDir?: string;
+}
+
+export interface ShopGroup {
+  inn: string;
+  companyName: string;
+  shops: ShopItem[];
+}
+
+export interface ShopItem {
+  id: number;
+  clientId: string;
+  shopAlias?: string;
+  legalName?: string;
+  country?: string;
+  currency?: string;
+  isPremium?: boolean;
+  subscriptionType?: string;
+  displayName: string;
 }
 
 /**
@@ -67,5 +87,32 @@ export function deleteSeller(id: number) {
   return request<void>({
     url: `/api/ozon/seller-info/${id}`,
     method: 'delete'
+  });
+}
+// src/service/api/ozon-seller-info.ts
+
+/** 修改店铺别名 */
+export function updateSellerAlias(id: number, shopAlias: string) {
+  return request<void>({
+    url: `/api/ozon/seller-info/${id}/alias`,
+    method: 'put',
+    params: { shopAlias }
+  });
+}
+
+/** 启用/禁用店铺 */
+export function updateSellerEnabled(id: number, enabled: boolean) {
+  return request<void>({
+    url: `/api/ozon/seller-info/${id}/enabled`,
+    method: 'put',
+    params: { enabled }
+  });
+}
+
+/** 按主体分组（级联下拉用） */
+export function fetchSellerGroups() {
+  return request<ShopGroup[]>({
+    url: '/api/ozon/seller-info/groups',
+    method: 'get'
   });
 }

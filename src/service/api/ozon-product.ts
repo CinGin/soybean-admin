@@ -58,14 +58,54 @@ export interface OzonProductPageResult {
 }
 
 // ========== 上架命令 DTO ==========
+// ========== 上架命令 DTO ==========
 export interface CreateListingCommand {
-  productId: string;
+  /** 源商品ID（可选，仅用于关联记录） */
+  productId?: string;
   offerId?: string;
+  /** 商品名称（自建必填） */
+  name: string;
+  /** 商品描述（可选） */
+  description?: string;
+  /** 类目ID（自建必填） */
+  descriptionCategoryId: string;
+  /** 类型ID（自建必填） */
+  typeId: string;
+  /** 售价 */
   price: string;
+  /** 原价（可选） */
   oldPrice?: string;
+  /** 增值税率（默认0） */
+  vat?: string;
+  /** 货币代码（默认RUB） */
+  currencyCode?: string;
+  /** 包装长（单位同dimensionUnit） */
+  depth: string;
+  /** 包装高 */
+  height: string;
+  /** 包装宽 */
+  width: string;
+  /** 重量（单位同weightUnit） */
+  weight: string;
+  /** 尺寸单位，如 mm */
+  dimensionUnit: string;
+  /** 重量单位，如 g */
+  weightUnit: string;
+  /** 图片URL列表 */
+  images: string[];
+  /** 主图URL（可选） */
+  primaryImage?: string;
+  /** 条码（可选） */
+  barcode?: string;
+  /** 属性数组（结构同Ozon接口） */
+  attributes: any[];
+  /** 复合属性（可选） */
+  complexAttributes?: any[];
+  /** 操作人 */
   operator: string;
-  // ★ 新增
+  /** 卖家Client-Id */
   clientId: string;
+  /** 卖家名称 */
   sellerName: string;
 }
 
