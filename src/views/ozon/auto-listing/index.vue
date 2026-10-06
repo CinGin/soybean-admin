@@ -100,7 +100,7 @@ function renderStatusPopover(row: Api.AutoListing.TaskItem) {
   // 1. 主流程中的状态
   if (MAIN_FLOW.includes(current)) {
     const currentIdx = MAIN_FLOW.indexOf(current);
-    return h('div', { style: 'padding: 12px 16px; min-width: 420px; max-width: 560px;' }, [
+    return h('div', { style: 'padding: 12px 16px; min-width: 420px; width: max-content;' }, [
       h(
         'div',
         {
@@ -113,12 +113,16 @@ function renderStatusPopover(row: Api.AutoListing.TaskItem) {
         { size: 'small', current: currentIdx + 1 },
         {
           default: () =>
-            MAIN_FLOW.map(s =>
-              h(NStep, {
+            MAIN_FLOW.map((s, idx) => {
+              const isCurrent = idx === currentIdx;
+              const isPast = idx < currentIdx;
+              return h(NStep, {
+                // ★ 关键：给每个 step 显式指定 status
+                status: isCurrent ? 'process' : isPast ? 'finish' : 'process',
                 title: MAIN_FLOW_LABEL[s] ?? s,
-                description: s === current ? '← 当前' : undefined
-              })
-            )
+                description: isCurrent ? '← 当前' : undefined
+              });
+            })
         }
       )
     ]);
